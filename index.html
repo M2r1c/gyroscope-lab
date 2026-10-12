@@ -240,17 +240,17 @@
       width: 17px; height: 17px; accent-color: var(--blue); cursor: pointer;
     }
 
-    /* 右下角 PhET 橘色圓形重設鈕 */
+    /* 右下角藍色圓形重新開始鈕 */
     .bottom-reset-wrap {
       margin-top: auto; display: flex; justify-content: flex-end; padding-top: 4px;
     }
     .btn-reset-phet {
-      background: none; border: none; cursor: pointer; padding: 0;
-      display: flex; align-items: center; justify-content: center;
-      transition: transform 0.15s ease; user-select: none;
+      width:88px; height:88px; flex:none; background:none; border:0; cursor:pointer; padding:0;
+      display:flex; align-items:center; justify-content:center; border-radius:50%;
+      transition:transform .15s ease,filter .15s ease; user-select:none;
     }
-    .btn-reset-phet:hover { transform: scale(1.08) rotate(15deg); }
-    .btn-reset-phet:active { transform: scale(0.92) rotate(45deg); }
+    .btn-reset-phet:hover { transform:scale(1.05); filter:brightness(1.08); }
+    .btn-reset-phet:active { transform:scale(.94); }
 
     /* 拉條拖曳教學小提示 (置於發射器旁) */
     .pull-tooltip {
@@ -470,16 +470,16 @@
       <!-- 右下角：重來與結束遊戲 -->
       <div class="bottom-reset-wrap">
         <button class="btn-reset-phet" id="btnReset" title="重新開始" aria-label="重新開始">
-          <svg viewBox="0 0 100 100" width="52" height="52" style="display:block; overflow:visible;">
+          <svg viewBox="0 0 100 100" width="88" height="88" style="display:block; overflow:visible;">
             <defs>
-              <radialGradient id="btnGrad" cx="38%" cy="32%" r="68%">
-                <stop offset="0%" stop-color="#ffb733"/><stop offset="25%" stop-color="#f57c00"/><stop offset="85%" stop-color="#e65100"/><stop offset="100%" stop-color="#bf360c"/>
+              <radialGradient id="btnGrad" cx="36%" cy="24%" r="78%">
+                <stop offset="0%" stop-color="#b4f6ff"/><stop offset="22%" stop-color="#59d9f2"/><stop offset="68%" stop-color="#189aca"/><stop offset="100%" stop-color="#08649c"/>
               </radialGradient>
               <filter id="btnDropShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.6"/></filter>
             </defs>
-            <circle cx="50" cy="50" r="46" fill="url(#btnGrad)" stroke="#c45400" stroke-width="2.5" filter="url(#btnDropShadow)"/>
-            <path d="M 72 35 A 27 27 0 1 1 51 23" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
-            <path d="M 62 13 L 84 19 L 68 36 Z" fill="#ffffff"/>
+            <circle cx="50" cy="50" r="46" fill="url(#btnGrad)" stroke="#0877a8" stroke-width="2.5" filter="url(#btnDropShadow)"/>
+            <path d="M 66 35 A 24 24 0 1 0 67 65" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round"/>
+            <path d="M 42 50 L 64 50 L 60 72 Z" fill="#ffffff"/>
           </svg>
         </button>
         <button class="btn-end-game" id="btnEndGame" disabled><span>結束<br>遊戲</span></button>
@@ -1094,7 +1094,7 @@
     }
 
     /* ============================================================
-       w-t 圖表繪製：動態適應 Y 軸比例，橫軸 15 秒
+       w-t 圖表繪製：動態適應 Y 軸比例，橫軸 20 秒
        ============================================================ */
     function drawGraph() {
       const canvas = $('graphCanvas');
@@ -1113,7 +1113,7 @@
       const pw = sw - padL - padR;
       const ph = sh - padT - padB;
 
-      const maxT = 15.0;
+      const maxT = 20.0;
 
       // 基準峰值轉速：由既有歷史與當前運作數據決定；調整滑桿時不預先跳動，等開始轉動時再自動調整比例
       let peakRpm = 2500;
@@ -1158,19 +1158,22 @@
       ctx.beginPath(); ctx.moveTo(padL, midY); ctx.lineTo(padL + pw, midY); ctx.stroke();
       ctx.fillText(`${Math.round(maxRpm * 0.5).toLocaleString()}`, padL - 38, midY + 4);
 
-      // X 軸 5秒, 10秒, 15秒 刻度線
-      const x5 = padL + pw * (5.0 / 15.0);
-      const x10 = padL + pw * (10.0 / 15.0);
+      // X 軸 5秒, 10秒, 15秒, 20秒刻度線
+      const x5 = padL + pw * (5.0 / 20.0);
+      const x10 = padL + pw * (10.0 / 20.0);
+      const x15 = padL + pw * (15.0 / 20.0);
 
       ctx.strokeStyle = 'rgba(255,255,255,0.05)';
       ctx.beginPath();
       ctx.moveTo(x5, padT); ctx.lineTo(x5, padT + ph);
       ctx.moveTo(x10, padT); ctx.lineTo(x10, padT + ph);
+      ctx.moveTo(x15, padT); ctx.lineTo(x15, padT + ph);
       ctx.stroke();
 
       ctx.fillText('5s', x5 - 6, padT + ph + 14);
       ctx.fillText('10s', x10 - 8, padT + ph + 14);
-      ctx.fillText('15s', padL + pw - 15, padT + ph + 14);
+      ctx.fillText('15s', x15 - 8, padT + ph + 14);
+      ctx.fillText('20s', padL + pw - 18, padT + ph + 14);
 
       // 繪製歷史曲線
       state.history.forEach(h => {
