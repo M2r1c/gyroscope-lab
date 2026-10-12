@@ -270,7 +270,22 @@
     /* 桌面版：舞台與儀器看板並列，右側固定控制面板。 */
     .stage-area { min-width: 620px; }
     .phet-sidebar { width: 300px; }
-  </style>
+    dialog#scoreDialog { width:min(760px,calc(100vw - 36px)); max-height:min(88vh,780px); overflow:auto; margin:auto; padding:24px; color:#f0f6fc; background:#161b22; border:1px solid #48566a; border-radius:16px; box-shadow:0 24px 80px #000b; }
+    dialog#scoreDialog::backdrop { background:#05080dcc; backdrop-filter:blur(4px); }
+    .score-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:18px; }
+    .score-head h2 { font-size:1.55rem; color:#fff; margin-bottom:5px; }
+    .score-head p,.score-note { color:#aab7c7; line-height:1.6; font-size:.92rem; }
+    .score-close { border:1px solid #536174; color:#fff; background:#242c37; border-radius:8px; padding:7px 11px; cursor:pointer; }
+    .score-current { padding:14px 16px; background:#1d2b3b; border:1px solid #385878; border-radius:12px; margin-bottom:14px; line-height:1.8; }
+    .score-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .score-card { padding:16px; background:#202833; border:1px solid #394554; border-radius:12px; }
+    .score-card h3 { font-size:1rem; color:#8fc7ff; margin-bottom:8px; }
+    .score-card.longest h3 { color:#ffd479; }
+    .score-card strong { display:block; font-size:1.12rem; margin:3px 0; }
+    .score-card p { color:#bac5d2; line-height:1.65; font-size:.9rem; }
+    .score-insight { margin-top:14px; padding:14px 16px; border-left:4px solid #f0883e; background:#33271e; border-radius:8px; line-height:1.75; }
+    .score-note { margin-top:12px; font-size:.82rem; }
+    @media (max-width:640px) { .score-grid { grid-template-columns:1fr; } dialog#scoreDialog { padding:18px; } }  </style>
 </head>
 <body>
 
@@ -287,6 +302,7 @@
       <h1>物理實驗室</h1>
     </div>
     <div class="header-actions">
+      <button class="btn-icon" id="btnScore" disabled>📋 成績單</button>
       <button class="btn-icon" id="soundBtn">🔊 音效: 開</button>
       <button class="btn-icon" onclick="alert('【操作說明】\n1. 用滑鼠「向右按住拖曳紅色拉條握把」，往右拉伸後「放開滑鼠」！\n2. 放開後拉條立即抽離，戰鬥陀螺在中央戰鬥盤呼嘯旋轉！\n3. 旋轉期間重量與半徑自動鎖定，轉動完全結束後才可重新調整。\n4. 右側勾選框可自由顯示/隱藏數據看板、w-t圖與實驗歷程。')">❓ 說明</button>
     </div>
@@ -458,6 +474,10 @@
 
   </div>
 
+  <dialog id="scoreDialog" aria-labelledby="scoreTitle">
+    <div class="score-head"><div><h2 id="scoreTitle">陀螺實驗成績單</h2><p>完成一次旋轉後，看看這次表現與不同目標的最佳設定。</p></div><button class="score-close" id="btnCloseScore">關閉 ✕</button></div>
+    <div id="scoreContent"></div>
+  </dialog>
   <script>
     /* ============================================================
        音效引擎 (Web Audio API 合成，零外部依賴)
@@ -710,6 +730,39 @@
       $('valRevs').innerHTML = `0.0 <small>圈</small>`;
     }
 
+    function predictConfiguration(shapeId, massG, radiusCm) {
+      const shape = SHAPES[shapeId], massKg = massG / 1000, radiusM = radiusCm / 100;
+      const inertia = shape.k * massKg * radiusM * radiusM;
+      const omega0 = Math.sqrt(2 * FIXED_PHYSICS.workMax / inertia);
+      const friction = FIXED_PHYSICS.frictionTorque * (massKg / 0.05), air = FIXED_PHYSICS.airDragCoeff;
+      return { shape, massG, radiusCm, inertiaGcm2: inertia * 1e7, duration: (inertia / air) * Math.log1p((air * omega0) / friction) };
+    }
+
+    function findBestConfigurations() {
+      const m = $('sliderMass'), r = $('sliderRadius');
+      const minR = Math.round(Number(r.min) * 10), maxR = Math.round(Number(r.max) * 10), stepR = Math.max(1, Math.round(Number(r.step) * 10));
+      let maxI = null, longest = null;
+      for (const shape of Object.values(SHAPES)) for (let mass = Number(m.min); mass <= Number(m.max); mass += Number(m.step)) for (let r10 = minR; r10 <= maxR; r10 += stepR) {
+        const x = predictConfiguration(shape.id, mass, r10 / 10);
+        if (!maxI || x.inertiaGcm2 > maxI.inertiaGcm2) maxI = x;
+        if (!longest || x.duration > longest.duration) longest = x;
+      }
+      return { maxI, longest };
+    }
+
+    function renderScoreReport(run) {
+      const { maxI, longest } = findBestConfigurations();
+      const setting = x => `${x.shape.name}・${x.massG} g・半徑 ${x.radiusCm.toFixed(1)} cm`;
+      $('scoreContent').innerHTML = `
+        <div class="score-current"><strong>本次成績</strong><br>${run.name}｜${run.massG} g｜半徑 ${run.radiusCm.toFixed(1)} cm<br>轉動慣量 ${run.I.toFixed(1)} g·cm²｜旋轉 ${run.time.toFixed(2)} 秒｜約 ${Math.round(run.revs).toLocaleString()} 圈</div>
+        <div class="score-grid">
+          <section class="score-card"><h3>🏆 最大轉動慣量</h3><strong>${setting(maxI)}</strong><p>轉動慣量 ${maxI.inertiaGcm2.toFixed(1)} g·cm²<br>預測旋轉 ${maxI.duration.toFixed(2)} 秒</p></section>
+          <section class="score-card longest"><h3>⏱️ 最長旋轉時間</h3><strong>${setting(longest)}</strong><p>預測旋轉 ${longest.duration.toFixed(2)} 秒<br>轉動慣量 ${longest.inertiaGcm2.toFixed(1)} g·cm²</p></section>
+        </div>
+        <div class="score-insight"><strong>轉動慣量越大，不代表一定轉越久。</strong><br>本實驗每次發射提供相同的 1 焦耳能量；轉動慣量較大時，起始轉速會較低，而質量增加也會讓軸尖摩擦阻力變大。以薄圓環、半徑 5.0 cm 為例：20 g 的轉動慣量是 500 g·cm²，約轉 ${predictConfiguration('ring',20,5).duration.toFixed(2)} 秒；100 g 的轉動慣量是 2500 g·cm²，反而約轉 ${predictConfiguration('ring',100,5).duration.toFixed(2)} 秒。時間還會受到空氣阻力影響。</div>
+        <p class="score-note">最佳設定依目前可選範圍（20–100 g、半徑 1.5–5.0 cm）、固定發射能量與本模擬器的簡化阻力模型計算。真實陀螺還會受軸尖、材質、地面和發射方式影響。</p>`;
+      $('btnScore').disabled = false;
+    }
     function recordRun() {
       if (!state.curData || state.curData.length < 1) return;
       if (state.curData.length === 1) {
@@ -723,6 +776,8 @@
         name: SHAPES[state.shape].name,
         color: SHAPES[state.shape].color,
         I: inertiaGcm2,
+        massG,
+        radiusCm,
         rpm0: toRpm(state.omega0),
         time: state.time,
         revs: state.revs,
@@ -741,6 +796,9 @@
           <td style="white-space:nowrap;">${Math.round(r.revs)}</td>
         </tr>
       `).join('');
+      renderScoreReport(state.history[0]);
+      const dialog = $('scoreDialog');
+      if (!dialog.open) dialog.showModal();
     }
 
     /* 畫布尺寸適應 */
@@ -1317,6 +1375,8 @@
        初始化與事件綁定
        ============================================================ */
     window.addEventListener('DOMContentLoaded', () => {
+      $('btnScore').addEventListener('click', () => { if (state.history.length) { renderScoreReport(state.history[0]); $('scoreDialog').showModal(); } });
+      $('btnCloseScore').addEventListener('click', () => $('scoreDialog').close());
       // 1. 形狀切換
       document.querySelectorAll('.shape-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1379,6 +1439,7 @@
       $('btnReset').addEventListener('click', resetSimulation);$('btnClearHistory').addEventListener('click', () => {
         if (state.status === 'spinning' || state.status === 'launching') return;
         state.history = [];
+        $('btnScore').disabled = true;
         state.curData = [];
         $('historyTableBody').innerHTML = '';
         drawGraph();
