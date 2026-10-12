@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="互動式戰鬥陀螺轉動慣量物理實驗。調整形狀、質量與半徑，觀察角速度和實驗數據。">
+  <meta name="theme-color" content="#090c10">
+  <title>物理實驗室 | 戰鬥陀螺轉動慣量探究</title>
+  <style>
+    :root {
+      --bg: #090c10;
+      --card-bg: #dce5f2; /* PhET 風格柔和淡藍色卡片 */
+      --card-border: #9ab4d0;
+      --card-text: #1a2332;
+      --blue: #0969da;
+      --orange: #f57c00;
+      --green: #2da44e;
+      --red: #cf222e;
+      --text: #f0f6fc;
+      --muted: #8b949e;
+      --panel-dark: rgba(22, 27, 34, 0.88);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif;
+      height: 100vh; overflow: hidden; width: 100vw; min-width: 1024px;
+    }
+    body {
+      display: flex; flex-direction: column;
+    }
+
+    /* 頂部標題列 */
+    header {
+      background: #161b22; border-bottom: 1px solid #30363d; padding: 6px 18px;
+      display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+      height: 44px; z-index: 20;
+    }
+    .header-logo { display: flex; align-items: center; gap: 8px; }
+    .header-logo h1 {
+      font-size: 1.25rem; font-weight: 800;
+      background: linear-gradient(90deg, #58a6ff, #bc8cff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-icon {
+      background: #21262d; border: 1px solid #30363d; color: var(--text);
+      padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+    }
+    .btn-icon:hover { background: #30363d; }
+
+    /* 主畫面佈局：全螢幕互動舞台 + 右側 PhET 浮動控制面板 */
+    .main-container {
+      display: flex; flex: 1; height: calc(100vh - 44px); position: relative; overflow: hidden;
+    }
+
+    /* 中央主舞台區 (Stage Area) */
+    .stage-area {
+      flex: 1; position: relative; height: 100%; overflow: hidden;
+      background: radial-gradient(circle at 45% 45%, #151b24 0%, #080a0e 85%);
+    }
+    #stageCanvas {
+      width: 100%; height: 100%; display: block;
+    }
+
+    /* 浮動於舞台上的物理數據看板 */
+    .floating-hud {
+      position: absolute; top: 14px; left: 16px;
+      width: 244px; min-width: 244px; max-width: 244px;
+      display: grid; grid-template-columns: 118px 118px; gap: 8px;
+      z-index: 10; transition: opacity 0.2s, transform 0.2s;
+    }
+    .hud-card {
+      background: var(--panel-dark); border: 1px solid #30363d; border-radius: 8px;
+      padding: 6px 10px; backdrop-filter: blur(8px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      display: flex; flex-direction: column; justify-content: center;
+      border-left: 3px solid var(--blue);
+      width: 118px; min-width: 118px; max-width: 118px;
+      height: 52px; box-sizing: border-box; overflow: hidden;
+    }
+    .hud-card.span-two {
+      grid-column: span 2;
+      width: 244px; min-width: 244px; max-width: 244px;
+    }
+    .hud-card.accent { border-left-color: var(--orange); }
+    .hud-card.green { border-left-color: var(--green); }
+    .hud-card.yellow { border-left-color: #e3b341; }
+    .hud-card.purple { border-left-color: #bc8cff; }
+    .hud-title {
+      font-size: 0.72rem; color: var(--muted); font-weight: 600; margin-bottom: 2px;
+      white-space: nowrap; overflow: hidden;
+    }
+    .hud-val {
+      font-size: 1.05rem; font-weight: 800; color: #fff;
+      font-feature-settings: "tnum"; font-variant-numeric: tabular-nums;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display: flex; align-items: baseline; gap: 3px;
+    }
+    .hud-val small {
+      font-size: 0.68rem; font-weight: 600; color: var(--muted);
+    }
+
+    /* 浮動於舞台左下角的 ω - t 圖表儀器 */
+    .floating-graph {
+      position: absolute; bottom: 16px; left: 16px;
+      width: 360px; height: 195px; background: var(--panel-dark);
+      border: 1px solid #30363d; border-radius: 10px; padding: 10px;
+      display: flex; flex-direction: column; backdrop-filter: blur(8px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6); z-index: 10;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .graph-head {
+      font-size: 0.85rem; font-weight: 700; color: #fff; margin-bottom: 4px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .graph-wrap {
+      flex: 1; position: relative; width: 100%; height: 100%; background: #06090e;
+      border-radius: 6px; border: 1px solid #21262d; overflow: hidden;
+    }
+    #graphCanvas { width: 100%; height: 100%; display: block; }
+
+    /* 浮動於舞台右下偏左的實驗歷程表格儀器 */
+    .floating-history {
+      position: absolute; bottom: 16px; left: 388px;
+      width: 420px; max-width: calc(100% - 400px); height: 195px; background: var(--panel-dark);
+      border: 1px solid #30363d; border-radius: 10px; padding: 10px;
+      display: flex; flex-direction: column; backdrop-filter: blur(8px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6); z-index: 10;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .history-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px; font-size: 0.85rem; font-weight: 700; color: #fff;
+    }
+    .history-table-wrap {
+      flex: 1; overflow: auto; border: 1px solid #21262d; border-radius: 6px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: center; }
+    th {
+      background: #161b22; color: var(--muted); padding: 5px 8px;
+      position: sticky; top: 0; white-space: nowrap; font-weight: 700;
+      user-select: none;
+    }
+    td {
+      padding: 5px 8px; border-top: 1px solid #21262d;
+      font-feature-settings: "tnum"; font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    th:first-child, td:first-child { text-align: left; }
+
+    /* 倒數大字幕遮罩 */
+    .countdown-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none; opacity: 0; transition: opacity 0.1s ease;
+      z-index: 15;
+    }
+    .countdown-text {
+      font-size: 5.5rem; font-weight: 900; color: #fff;
+      text-shadow: 0 0 35px rgba(255, 110, 0, 0.95), 0 0 70px rgba(255, 40, 0, 0.7);
+      transform: scale(0.6); transition: transform 0.12s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      font-style: italic; letter-spacing: 3px;
+    }
+
+    /* 右側 PhET 風格淡色控制面板 */
+    .phet-sidebar {
+      width: 285px; height: 100%; background: transparent;
+      padding: 12px; display: flex; flex-direction: column; gap: 10px;
+      overflow-y: auto; z-index: 10; flex-shrink: 0;
+    }
+
+    /* PhET 經典淡藍色控制盒 */
+    .phet-box {
+      background: var(--card-bg); border: 2px solid var(--card-border);
+      border-radius: 12px; padding: 12px 14px; color: var(--card-text);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 8px;
+    }
+    .phet-box-title {
+      font-size: 0.95rem; font-weight: 800; color: #0d1b2a;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid rgba(0,0,0,0.12); padding-bottom: 4px;
+    }
+
+    /* 形狀選擇鈕 */
+    .shape-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    }
+    .shape-btn {
+      background: #fff; border: 2px solid #b0c4de; border-radius: 8px;
+      padding: 8px 4px; font-size: 0.88rem; font-weight: 700; color: #1a2332;
+      cursor: pointer; text-align: center; transition: all 0.15s;
+    }
+    .shape-btn:hover { border-color: var(--blue); background: #f0f7ff; }
+    .shape-btn.active {
+      border-color: var(--blue); background: #0969da; color: #ffffff;
+      box-shadow: 0 2px 6px rgba(9, 105, 218, 0.3);
+    }
+
+    /* 滑桿與微調按鈕 */
+    .control-row { display: flex; flex-direction: column; gap: 4px; }
+    .control-label-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.85rem; font-weight: 700; color: #24292f;
+    }
+    .val-badge {
+      background: #fff; padding: 2px 8px; border-radius: 6px;
+      border: 1px solid #b0c4de; font-weight: 800; color: var(--blue);
+      font-size: 0.88rem;
+    }
+    .slider-flex {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .btn-step {
+      width: 28px; height: 28px; border-radius: 6px; background: #fff;
+      border: 1px solid #9ab4d0; font-size: 1rem; font-weight: 800;
+      color: #1a2332; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.1s; user-select: none;
+    }
+    .btn-step:hover:not(:disabled) { background: #e2eeff; border-color: var(--blue); }
+    .btn-step:disabled { opacity: 0.45; cursor: not-allowed; }
+    input[type=range] {
+      flex: 1; height: 6px; border-radius: 3px; background: #b0c4de;
+      outline: none; -webkit-appearance: none; cursor: pointer;
+    }
+    input[type=range]:disabled { opacity: 0.45; cursor: not-allowed; }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: var(--blue); cursor: pointer; border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+
+    /* PhET 樣式勾選框 (Checkboxes) */
+    .checkbox-group { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+    .checkbox-item {
+      display: flex; align-items: center; gap: 8px; font-size: 0.85rem;
+      font-weight: 700; color: #1a2332; cursor: pointer; user-select: none;
+    }
+    .checkbox-item input[type=checkbox] {
+      width: 17px; height: 17px; accent-color: var(--blue); cursor: pointer;
+    }
+
+    /* 右下角 PhET 橘色圓形重設鈕 */
+    .bottom-reset-wrap {
+      margin-top: auto; display: flex; justify-content: flex-end; padding-top: 4px;
+    }
+    .btn-reset-phet {
+      background: none; border: none; cursor: pointer; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.15s ease; user-select: none;
+    }
+    .btn-reset-phet:hover { transform: scale(1.08) rotate(15deg); }
+    .btn-reset-phet:active { transform: scale(0.92) rotate(45deg); }
+
+    /* 拉條拖曳教學小提示 (置於發射器旁) */
+    .pull-tooltip {
+      position: absolute; top: 76px; left: calc(52% + 125px); transform: translateY(-50%);
+      background: rgba(245, 124, 0, 0.92); color: #fff; padding: 5px 12px;
+      border-radius: 6px; font-size: 0.84rem; font-weight: 700;
+      pointer-events: none; box-shadow: 0 4px 14px rgba(245, 124, 0, 0.45);
+      display: flex; align-items: center; justify-content: center;
+      letter-spacing: 0.5px; white-space: nowrap; transition: opacity 0.15s ease;
+      z-index: 12;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* 桌面版：舞台與儀器看板並列，右側固定控制面板。 */
+    .stage-area { min-width: 620px; }
+    .phet-sidebar { width: 300px; }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部標題列 -->
+  <header>
+    <div class="header-logo">
+      <svg viewBox="0 0 32 32" width="24" height="24">
+        <circle cx="16" cy="16" r="14" fill="#1f242c" stroke="#58a6ff" stroke-width="2"/>
+        <circle cx="16" cy="16" r="9" fill="#f0883e" opacity="0.8"/>
+        <polygon points="16,3 19,11 27,8 21,15 29,18 20,21 21,29 15,22 10,28 12,20 3,19 11,14 5,8 13,10" fill="#e3b341" opacity="0.9"/>
+        <circle cx="16" cy="16" r="4" fill="#f85149"/>
+        <circle cx="16" cy="16" r="1.5" fill="#ffffff"/>
+      </svg>
+      <h1>物理實驗室</h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" id="soundBtn">🔊 音效: 開</button>
+      <button class="btn-icon" onclick="alert('【操作說明】\n1. 用滑鼠「向右按住拖曳紅色拉條握把」，往右拉伸後「放開滑鼠」！\n2. 放開後拉條立即抽離，戰鬥陀螺在中央戰鬥盤呼嘯旋轉！\n3. 旋轉期間重量與半徑自動鎖定，轉動完全結束後才可重新調整。\n4. 右側勾選框可自由顯示/隱藏數據看板、w-t圖與實驗歷程。')">❓ 說明</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    
+    <!-- 中央主舞台 (戰鬥盤與發射器) -->
+    <div class="stage-area" id="stageArea">
+      <canvas id="stageCanvas"></canvas>
+
+      <!-- 抽拉拉條發射提示 (置於發射器上方頂部，完全不擋住陀螺) -->
+      <div class="pull-tooltip" id="pullTooltip">
+        抽出拉條發射
+      </div>
+
+      <!-- 倒數大字幕遮罩 -->
+      <div class="countdown-overlay" id="countdownOverlay">
+        <div class="countdown-text" id="countdownText">3</div>
+      </div>
+
+      <!-- 浮動物理數據看板 (可由右側打勾控制顯示/隱藏) -->
+      <div class="floating-hud" id="floatingHud">
+        <div class="hud-card">
+          <div class="hud-title">轉動慣量</div>
+          <div class="hud-val" id="valI">450.0 <small>g·cm²</small></div>
+        </div>
+        <div class="hud-card accent">
+          <div class="hud-title">初轉速</div>
+          <div class="hud-val" id="valOmega0">0 <small>轉/分</small></div>
+        </div>
+        <div class="hud-card purple">
+          <div class="hud-title">即時轉速</div>
+          <div class="hud-val" id="valRpm">0 <small>轉/分</small></div>
+        </div>
+        <div class="hud-card yellow">
+          <div class="hud-title">旋轉時間</div>
+          <div class="hud-val" id="valTime">0.00 <small>秒</small></div>
+        </div>
+        <div class="hud-card green span-two">
+          <div class="hud-title">總旋轉圈數</div>
+          <div class="hud-val" id="valRevs">0.0 <small>圈</small></div>
+        </div>
+      </div>
+
+      <!-- 浮動 ω - t 圖表 (可由右側打勾控制顯示/隱藏) -->
+      <div class="floating-graph" id="floatingGraph">
+        <div class="graph-head">
+          <span>轉速隨時間衰減曲線 (ω - t 圖)</span>
+        </div>
+        <div class="graph-wrap">
+          <canvas id="graphCanvas"></canvas>
+        </div>
+      </div>
+
+      <!-- 浮動實驗歷程表格 (可由右側打勾控制顯示/隱藏) -->
+      <div class="floating-history" id="floatingHistory">
+        <div class="history-head">
+          <span>實驗歷程</span>
+          <button class="btn-icon" id="btnClearHistory" style="padding:2px 8px; font-size:0.7rem;">清除記錄</button>
+        </div>
+        <div class="history-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>形狀</th>
+                <th>轉動慣量 (g·cm²)</th>
+                <th>圈速 (轉/分)</th>
+                <th>時間 (秒)</th>
+                <th>圈數</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 右側 PhET 風格淡色控制面板 -->
+    <aside class="phet-sidebar">
+      
+      <!-- 1. 選擇陀螺形狀 -->
+      <div class="phet-box">
+        <div class="phet-box-title">
+          <span>選擇陀螺形狀</span>
+        </div>
+        <div class="shape-grid">
+          <button class="shape-btn" data-shape="sphere">實心球</button>
+          <button class="shape-btn" data-shape="disk">圓盤</button>
+          <button class="shape-btn" data-shape="shell">薄球殼</button>
+          <button class="shape-btn active" data-shape="ring">薄圓環</button>
+        </div>
+      </div>
+
+      <!-- 2. 重量與大小調整 (發射旋轉期間不可調整，停止後才可調) -->
+      <div class="phet-box" id="adjustBox">
+        <div class="phet-box-title">
+          <span>重量與大小調整</span>
+        </div>
+        <div class="control-row">
+          <div class="control-label-row">
+            <span>重量</span>
+            <span class="val-badge" id="lblMass">50 g</span>
+          </div>
+          <div class="slider-flex">
+            <button class="btn-step" id="btnMassMinus">-</button>
+            <input type="range" id="sliderMass" min="20" max="100" value="50" step="5">
+            <button class="btn-step" id="btnMassPlus">+</button>
+          </div>
+        </div>
+
+        <div class="control-row" style="margin-top:6px;">
+          <div class="control-label-row">
+            <span>半徑</span>
+            <span class="val-badge" id="lblRadius">3.0 cm</span>
+          </div>
+          <div class="slider-flex">
+            <button class="btn-step" id="btnRadiusMinus">-</button>
+            <input type="range" id="sliderRadius" min="1.5" max="5.0" value="3.0" step="0.1">
+            <button class="btn-step" id="btnRadiusPlus">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 顯示選項 (PhET 經典 Checkbox 群組) -->
+      <div class="phet-box">
+        <div class="phet-box-title">
+          <span>顯示選項</span>
+        </div>
+        <div class="checkbox-group">
+          <label class="checkbox-item">
+            <input type="checkbox" id="chkMetrics" checked>
+            <span>物理數據</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="chkGraph" checked>
+            <span>轉速曲線 (ω - t 圖)</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="chkHistory" checked>
+            <span>實驗歷程</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 右下角 PhET 橘色圓形重設鈕 (依據使用者上傳圖) -->
+      <div class="bottom-reset-wrap">
+        <button class="btn-reset-phet" id="btnReset" title="重設回到發射狀態">
+          <svg viewBox="0 0 100 100" width="52" height="52" style="display:block; overflow:visible;">
+            <defs>
+              <radialGradient id="btnGrad" cx="38%" cy="32%" r="68%">
+                <stop offset="0%" stop-color="#ffb733"/>
+                <stop offset="25%" stop-color="#f57c00"/>
+                <stop offset="85%" stop-color="#e65100"/>
+                <stop offset="100%" stop-color="#bf360c"/>
+              </radialGradient>
+              <filter id="btnDropShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.6"/>
+              </filter>
+            </defs>
+            <circle cx="50" cy="50" r="46" fill="url(#btnGrad)" stroke="#c45400" stroke-width="2.5" filter="url(#btnDropShadow)"/>
+            <path d="M 50 20 A 30 30 0 1 0 80 50 A 30 30 0 0 0 72 29 L 82 19 L 56 19 L 56 45 L 64 37 A 18 18 0 1 1 50 32 A 18 18 0 0 1 62.5 37.5 L 70.5 29.5 A 30 30 0 0 0 50 20 Z" fill="#ffffff" stroke="#f57c00" stroke-width="0.5"/>
+          </svg>
+        </button>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <script>
+    /* ============================================================
+       音效引擎 (Web Audio API 合成，零外部依賴)
+       ============================================================ */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null; this.enabled = true; this.humOsc = null; this.humGain = null;
+      }
+      init() {
+        try {
+          if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+          if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+        } catch(e){}
+      }
+      beep(freq = 600, dur = 0.10) {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator(), g = this.ctx.createGain();
+          osc.type = 'sine'; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          g.gain.setValueAtTime(0.15, this.ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+          osc.connect(g); g.connect(this.ctx.destination);
+          osc.start(); osc.stop(this.ctx.currentTime + dur);
+        } catch(e){}
+      }
+      launchSound() {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator(), g = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(130, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(950, this.ctx.currentTime + 0.25);
+          g.gain.setValueAtTime(0.3, this.ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.28);
+          osc.connect(g); g.connect(this.ctx.destination);
+          osc.start(); osc.stop(this.ctx.currentTime + dur);
+        } catch(e){}
+      }
+      startHum(rpm) {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          if (!this.humOsc && rpm > 20) {
+            this.humOsc = this.ctx.createOscillator();
+            this.humGain = this.ctx.createGain();
+            this.humOsc.type = 'triangle';
+            this.humGain.gain.setValueAtTime(0.01, this.ctx.currentTime);
+            this.humOsc.connect(this.humGain);
+            this.humGain.connect(this.ctx.destination);
+            this.humOsc.start();
+          }
+          this.updateHum(rpm);
+        } catch(e){}
+      }
+      updateHum(rpm) {
+        if (!this.humOsc || !this.enabled || !this.ctx) return;
+        try {
+          if (rpm <= 15) { this.stopHum(); return; }
+          const freq = Math.min(90 + (rpm / 3000) * 350, 520);
+          this.humOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.05);
+          this.humGain.gain.setTargetAtTime(Math.min((rpm / 3500) * 0.12, 0.12), this.ctx.currentTime, 0.05);
+        } catch(e){}
+      }
+      stopHum() {
+        if (this.humOsc) {
+          try { this.humOsc.stop(); this.humOsc.disconnect(); } catch(e){}
+          this.humOsc = null; this.humGain = null;
+        }
+      }
+    }
+    const sound = new SoundEngine();
+
+    /* ============================================================
+       物理常數與狀態
+       ============================================================ */
+    const SHAPES = {
+      sphere: { id: 'sphere', name: '實心球', k: 0.4, color: '#58a6ff' },
+      disk:   { id: 'disk',   name: '圓盤',   k: 0.5, color: '#3fb950' },
+      shell:  { id: 'shell',  name: '薄球殼', k: 0.6667, color: '#bc8cff' },
+      ring:   { id: 'ring',   name: '薄圓環', k: 1.0, color: '#f0883e' }
+    };
+
+    const FIXED_PHYSICS = {
+      workMax: 1.0,            // 焦耳 (拉滿行程做功)
+      frictionTorque: 1.18e-3, // N·m (軸尖摩擦阻力矩)
+      airDragCoeff: 1.2e-6     // 空氣阻尼係數
+    };
+
+    const state = {
+      shape: 'ring',
+      mass: 0.05,     // kg (50g)
+      radius: 0.03,   // m (3.0cm)
+
+      status: 'idle', // 'idle', 'dragging', 'launching', 'spinning', 'stopped'
+      omega: 0,
+      omega0: 0,
+      angle: 0,
+      time: 0,
+      revs: 0,
+
+      // 手動拉條互動狀態
+      ripcordFraction: 0.0, // 0.0 (未拉) ~ 1.0 (拉滿)
+      isDraggingRipcord: false,
+      dragStartX: 0,
+      dropProgress: 0.0,
+
+      wanderX: 0,
+      wanderY: 0,
+      wanderVx: 0,
+      wanderVy: 0,
+      wanderAngle: 0,
+
+      curData: [],
+      history: []
+    };
+
+    const $ = id => document.getElementById(id);
+    const getI = () => SHAPES[state.shape].k * state.mass * Math.pow(state.radius, 2);
+    const toRpm = w => w * 60 / (2 * Math.PI);
+
+    let countdownTimers = [];
+    let returnTimer = null;
+
+    function clearCountdown() {
+      countdownTimers.forEach(id => clearTimeout(id));
+      countdownTimers = [];
+      const overlay = $('countdownOverlay');
+      if (overlay) overlay.style.opacity = '0';
+    }
+
+    /* 鎖定或解鎖重量與半徑調整 (發射旋轉期間不可調整，結束後才可調) */
+    function setControlsLocked(locked) {
+      $('sliderMass').disabled = locked;
+      $('sliderRadius').disabled = locked;
+      $('btnMassMinus').disabled = locked;
+      $('btnMassPlus').disabled = locked;
+      $('btnRadiusMinus').disabled = locked;
+      $('btnRadiusPlus').disabled = locked;
+      document.querySelectorAll('.shape-btn').forEach(b => {
+        b.style.pointerEvents = locked ? 'none' : 'auto';
+        b.style.opacity = locked ? '0.6' : '1';
+      });
+      $('adjustBox').style.opacity = locked ? '0.65' : '1';
+
+      // 旋轉期間禁止清除數據
+      const btnClear = $('btnClearHistory');
+      if (btnClear) {
+        btnClear.disabled = locked;
+        btnClear.style.opacity = locked ? '0.35' : '1';
+        btnClear.style.pointerEvents = locked ? 'none' : 'auto';
+        btnClear.style.cursor = locked ? 'not-allowed' : 'pointer';
+      }
+    }
+
+    /* 調整參數時更新介面 */
+    function updateParams() {
+      const massG = parseFloat($('sliderMass').value);
+      const radiusCm = parseFloat($('sliderRadius').value);
+
+      state.mass = massG / 1000;
+      state.radius = radiusCm / 100;
+
+      $('lblMass').textContent = `${massG} g`;
+      $('lblRadius').textContent = `${radiusCm.toFixed(1)} cm`;
+
+      const inertiaGcm2 = SHAPES[state.shape].k * massG * Math.pow(radiusCm, 2);
+      $('valI').innerHTML = `${inertiaGcm2.toFixed(1)} <small>g·cm²</small>`;
+
+      if (state.status === 'spinning' || state.status === 'stopped') {
+        $('valOmega0').innerHTML = `${Math.round(toRpm(state.omega0)).toLocaleString()} <small>轉/分</small>`;
+      } else {
+        $('valOmega0').innerHTML = `0 <small>轉/分</small>`;
+      }
+    }
+
+    /* ============================================================
+       拉條放開直接發射流程 (拉完放開，直接開始轉)
+       ============================================================ */
+    function executeDirectLaunch() {
+      if (state.status === 'launching' || state.status === 'spinning') return;
+      if (returnTimer) { clearTimeout(returnTimer); returnTimer = null; }
+
+      // 鎖定重量與半徑調整
+      setControlsLocked(true);
+      $('pullTooltip').style.opacity = '0';
+
+      state.status = 'launching';
+      try { sound.launchSound(); } catch(e){}
+
+      // 固定發射拉力與做功 (固定 1.0 焦耳)，確保同一形狀在固定質量與半徑下每次結果完全相同
+      const actualWork = FIXED_PHYSICS.workMax;
+      const I = Math.max(getI(), 1e-8);
+      const w0 = Math.sqrt((2 * actualWork) / I);
+
+      const animStart = performance.now();
+      const animDuration = 160; // 0.16 秒快速抽離進入戰鬥盤
+
+      function animStep() {
+        const curNow = performance.now();
+        const p = Math.min((curNow - animStart) / animDuration, 1.0);
+        state.dropProgress = p;
+
+        if (p < 1.0) {
+          requestAnimationFrame(animStep);
+        } else {
+          // 進入戰鬥盤，正式進入高速旋轉與漫遊！
+          state.status = 'spinning';
+          state.omega = state.omega0 = w0;
+          state.time = 0;
+          state.revs = 0;
+          state.curData = [{ t: 0, rpm: toRpm(w0) }];
+          state.ripcordFraction = 0; // 發射後拉條完全歸位
+          state.wanderX = 0;
+          state.wanderY = 0;
+          state.wanderVx = (Math.random() - 0.5) * 80;
+          state.wanderVy = (Math.random() - 0.5) * 80;
+          state.wanderAngle = Math.random() * Math.PI * 2;
+
+          $('valOmega0').innerHTML = `${Math.round(toRpm(w0)).toLocaleString()} <small>轉/分</small>`;
+          try { sound.startHum(toRpm(w0)); } catch(e){}
+        }
+      }
+      requestAnimationFrame(animStep);
+    }
+
+    /* 重設就緒：恢復初始狀態並解鎖調整 */
+    function resetSimulation() {
+      clearCountdown();
+      if (returnTimer) { clearTimeout(returnTimer); returnTimer = null; }
+      sound.stopHum();
+      state.status = 'idle';
+      state.omega = state.omega0 = state.angle = state.time = state.revs = 0;
+      state.ripcordFraction = 0;
+      state.dropProgress = 0;
+      state.wanderX = state.wanderY = state.wanderVx = state.wanderVy = state.wanderAngle = 0;
+      state.curData = [];
+
+      // 解鎖調整
+      setControlsLocked(false);
+      $('pullTooltip').style.opacity = '1';
+
+      $('valOmega0').innerHTML = `0 <small>轉/分</small>`;
+      $('valRpm').innerHTML = `0 <small>轉/分</small>`;
+      $('valTime').innerHTML = `0.00 <small>秒</small>`;
+      $('valRevs').innerHTML = `0.0 <small>圈</small>`;
+    }
+
+    function recordRun() {
+      if (!state.curData || state.curData.length < 1) return;
+      if (state.curData.length === 1) {
+        state.curData.push({ t: Math.max(state.time, 0.1), rpm: 0 });
+      }
+      const massG = parseFloat($('sliderMass').value);
+      const radiusCm = parseFloat($('sliderRadius').value);
+      const inertiaGcm2 = SHAPES[state.shape].k * massG * Math.pow(radiusCm, 2);
+
+      state.history.unshift({
+        name: SHAPES[state.shape].name,
+        color: SHAPES[state.shape].color,
+        I: inertiaGcm2,
+        rpm0: toRpm(state.omega0),
+        time: state.time,
+        revs: state.revs,
+        pts: [...state.curData]
+      });
+
+      if (state.history.length > 5) state.history.pop();
+
+      // 更新歷程表記錄 (確保所有文字均為單排橫向，不折行不跨行)
+      $('historyTableBody').innerHTML = state.history.map(r => `
+        <tr>
+          <td style="color:${r.color}; font-weight:700; white-space:nowrap;">● ${r.name}</td>
+          <td style="white-space:nowrap;">${r.I.toFixed(1)}</td>
+          <td style="white-space:nowrap;">${Math.round(r.rpm0).toLocaleString()}</td>
+          <td style="color:var(--yellow); font-weight:700; white-space:nowrap;">${r.time.toFixed(2)}s</td>
+          <td style="white-space:nowrap;">${Math.round(r.revs)}</td>
+        </tr>
+      `).join('');
+    }
+
+    /* 畫布尺寸適應 */
+    function updateTooltipPos() {
+      const canvas = $('stageCanvas');
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const sw = (canvas.width || 800) / dpr;
+      const sh = (canvas.height || 600) / dpr;
+      const arenaCenterX = sw * 0.52;
+      const launcherY = Math.max(sh * 0.12, 28);
+      const launcherH = 65;
+      const launcherW = 95;
+      const launcherX = arenaCenterX - launcherW / 2;
+      const cordSlotY = launcherY + launcherH / 2;
+      const cordRightStartX = launcherX + launcherW;
+      const handRightX = cordRightStartX + 20 + 44;
+      const tip = $('pullTooltip');
+      if (tip) {
+        tip.style.left = `${handRightX + 16}px`;
+        tip.style.top = `${cordSlotY}px`;
+      }
+    }
+
+    function fitCanvas(c) {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = c.getBoundingClientRect();
+      const w = Math.floor(rect.width * dpr);
+      const h = Math.floor(rect.height * dpr);
+      if (c.width !== w || c.height !== h) {
+        c.width = w;
+        c.height = h;
+        updateTooltipPos();
+      }
+    }
+
+    /* ============================================================
+       主舞台繪製：中央戰鬥盤 + 上方手動抽拉發射器
+       ============================================================ */
+    function drawStage() {
+      const canvas = $('stageCanvas');
+      const ctx = canvas.getContext('2d');
+      fitCanvas(canvas);
+
+      const dpr = window.devicePixelRatio || 1;
+      const sw = canvas.width / dpr;
+      const sh = canvas.height / dpr;
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, sw, sh);
+
+      // 1. 中央戰鬥盤 (Beystadium Arena)
+      const arenaCenterX = sw * 0.52;
+      const arenaCenterY = sh * 0.58;
+      const arenaRadius = Math.min(sw * 0.38, sh * 0.36);
+
+      // 碗底漸層
+      const bowlGrad = ctx.createRadialGradient(arenaCenterX, arenaCenterY, 15, arenaCenterX, arenaCenterY, arenaRadius);
+      bowlGrad.addColorStop(0, '#1c2432');
+      bowlGrad.addColorStop(0.75, '#121722');
+      bowlGrad.addColorStop(1, '#090d14');
+      ctx.fillStyle = bowlGrad;
+      ctx.beginPath();
+      ctx.arc(arenaCenterX, arenaCenterY, arenaRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 戰鬥盤外圈高光護欄
+      ctx.strokeStyle = 'rgba(88, 166, 255, 0.25)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // 同心刻度圈
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.lineWidth = 1.5;
+      for (let r = arenaRadius * 0.28; r < arenaRadius; r += arenaRadius * 0.28) {
+        ctx.beginPath();
+        ctx.arc(arenaCenterX, arenaCenterY, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // 2. 上方手持發射器與紅色拉條 (置於戰鬥盤正上方，完全不與左側物理數據干涉)
+      const launcherW = 95;
+      const launcherH = 65;
+      const launcherX = arenaCenterX - launcherW / 2;
+      const launcherY = Math.max(sh * 0.12, 28);
+
+      // (A) 左手抓握發射器
+      ctx.fillStyle = '#f5cbb1';
+      ctx.beginPath();
+      ctx.roundRect(launcherX - 22, launcherY + 12, 20, 42, 6);
+      ctx.fill();
+      ctx.strokeStyle = '#d49b6a';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // (B) 黑色發射器本體 (稜角造型)
+      ctx.fillStyle = '#21262d';
+      ctx.strokeStyle = '#484f58';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(launcherX, launcherY + 10);
+      ctx.lineTo(launcherX + launcherW - 10, launcherY);
+      ctx.lineTo(launcherX + launcherW, launcherY + launcherH);
+      ctx.lineTo(launcherX + 10, launcherY + launcherH);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 機身凹槽
+      ctx.fillStyle = '#11151c';
+      ctx.fillRect(launcherX + 22, launcherY + 18, 45, 28);
+      ctx.strokeStyle = '#30363d';
+      ctx.strokeRect(launcherX + 22, launcherY + 18, 45, 28);
+
+      // (C) 紅色拉條 (可手動按住向右拖曳拉長)
+      const cordSlotY = launcherY + launcherH / 2;
+      const maxPullPx = 135;
+      const currentPullPx = state.ripcordFraction * maxPullPx;
+
+      // 拉條左端向左延伸
+      const leftTipX = launcherX - 45 + currentPullPx * 0.3;
+      ctx.fillStyle = '#d32f2f';
+      ctx.fillRect(leftTipX, cordSlotY - 4, launcherX - leftTipX, 8);
+
+      // 拉條右側被抽出部分
+      const cordRightStartX = launcherX + launcherW;
+      const cordRightEndX = cordRightStartX + 20 + currentPullPx;
+      ctx.fillRect(cordRightStartX, cordSlotY - 4, cordRightEndX - cordRightStartX, 8);
+
+      ctx.strokeStyle = '#9a0007';
+      ctx.lineWidth = 1.5;
+      for (let gx = cordRightStartX + 4; gx < cordRightEndX - 8; gx += 5) {
+        ctx.beginPath(); ctx.moveTo(gx, cordSlotY - 4); ctx.lineTo(gx, cordSlotY + 4); ctx.stroke();
+      }
+
+      // 紅色握把環 (T-Handle)
+      ctx.fillStyle = '#b71c1c';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(cordRightEndX, cordSlotY - 16, 14, 32, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // (D) 右手手指抓握拉環
+      ctx.fillStyle = '#f5cbb1';
+      ctx.beginPath();
+      ctx.roundRect(cordRightEndX + 16, cordSlotY - 14, 28, 30, 8);
+      ctx.fill();
+      ctx.strokeStyle = '#d49b6a';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // 儲存可拖曳握把的點擊判定區域
+      state.handleHitArea = {
+        x: cordRightEndX - 10,
+        y: cordSlotY - 24,
+        w: 60,
+        h: 48,
+        slotX: cordRightStartX,
+        maxPullPx: maxPullPx
+      };
+
+      // 3. 戰鬥陀螺本體 (在中央戰鬥盤旋轉)
+      const beyRadiusPx = (state.radius / 0.03) * (arenaRadius * 0.24);
+
+      let beyX = arenaCenterX;
+      let beyY = arenaCenterY;
+
+      if (state.status === 'idle' || state.status === 'dragging') {
+        // 掛在發射器正下方，向下延伸，絕不遮擋拉條與手部
+        beyX = arenaCenterX;
+        beyY = launcherY + launcherH + beyRadiusPx + 6;
+      } else if (state.status === 'launching') {
+        const startY = launcherY + launcherH + beyRadiusPx + 6;
+        beyX = arenaCenterX;
+        beyY = startY + (arenaCenterY - startY) * state.dropProgress;
+      } else if (state.status === 'spinning') {
+        // 在戰鬥盤內隨機動態漫遊，並帶有轉速衰減擺動
+        const rpm = toRpm(state.omega);
+        const amp = Math.max(0, (1 - rpm / 3000)) * 6.0;
+        const wobX = Math.sin(state.time * 14) * amp;
+        const wobY = Math.cos(state.time * 11) * amp;
+        beyX = arenaCenterX + state.wanderX + wobX;
+        beyY = arenaCenterY + state.wanderY + wobY;
+      }
+
+      ctx.save();
+      ctx.translate(beyX, beyY);
+
+      if (state.status === 'spinning' && toRpm(state.omega) > 80) {
+        ctx.save();
+        ctx.strokeStyle = SHAPES[state.shape].color;
+        ctx.globalAlpha = Math.min(toRpm(state.omega) / 2500, 0.7);
+        ctx.lineWidth = 4;
+        ctx.setLineDash([14, 18]);
+        ctx.rotate(state.angle * 1.5);
+        ctx.beginPath();
+        ctx.arc(0, 0, beyRadiusPx + 10, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      ctx.rotate(state.angle);
+
+      // 外圍金屬刃
+      const bladeCount = 6;
+      ctx.fillStyle = '#b0bec5';
+      ctx.strokeStyle = '#eceff1';
+      ctx.lineWidth = 1.5;
+
+      for (let i = 0; i < bladeCount; i++) {
+        ctx.rotate((Math.PI * 2) / bladeCount);
+        ctx.beginPath();
+        ctx.moveTo(beyRadiusPx * 0.7, -10);
+        ctx.lineTo(beyRadiusPx + 8, -4);
+        ctx.lineTo(beyRadiusPx + 4, 8);
+        ctx.lineTo(beyRadiusPx * 0.65, 12);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // 形狀質量分佈
+      if (state.shape === 'ring') {
+        ctx.fillStyle = 'rgba(10, 14, 20, 0.85)';
+        ctx.beginPath(); ctx.arc(0, 0, beyRadiusPx * 0.72, 0, Math.PI * 2); ctx.fill();
+
+        ctx.strokeStyle = '#f0883e';
+        ctx.lineWidth = beyRadiusPx * 0.28;
+        ctx.beginPath(); ctx.arc(0, 0, beyRadiusPx * 0.85, 0, Math.PI * 2); ctx.stroke();
+      } else if (state.shape === 'sphere') {
+        const gradSph = ctx.createRadialGradient(-beyRadiusPx * 0.2, -beyRadiusPx * 0.2, 4, 0, 0, beyRadiusPx * 0.85);
+        gradSph.addColorStop(0, '#cce5ff');
+        gradSph.addColorStop(0.5, '#58a6ff');
+        gradSph.addColorStop(1, '#0c2d6b');
+        ctx.fillStyle = gradSph;
+        ctx.beginPath(); ctx.arc(0, 0, beyRadiusPx * 0.85, 0, Math.PI * 2); ctx.fill();
+      } else if (state.shape === 'disk') {
+        ctx.fillStyle = '#238636';
+        ctx.beginPath(); ctx.arc(0, 0, beyRadiusPx * 0.82, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#3fb950'; ctx.lineWidth = 3; ctx.stroke();
+      } else if (state.shape === 'shell') {
+        ctx.fillStyle = 'rgba(15, 12, 25, 0.88)';
+        ctx.beginPath(); ctx.arc(0, 0, beyRadiusPx * 0.75, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#bc8cff'; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.arc(0, 0, beyRadiusPx * 0.82, 0, Math.PI * 2); ctx.stroke();
+      }
+
+      // 核心紅色晶片與金色圖騰
+      const coreGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, beyRadiusPx * 0.45);
+      coreGrad.addColorStop(0, '#ff8a80');
+      coreGrad.addColorStop(0.6, '#d50000');
+      coreGrad.addColorStop(1, '#8b0000');
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, beyRadiusPx * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffeb3b';
+      ctx.beginPath();
+      ctx.moveTo(0, -beyRadiusPx * 0.28);
+      ctx.lineTo(beyRadiusPx * 0.18, 0);
+      ctx.lineTo(0, beyRadiusPx * 0.28);
+      ctx.lineTo(-beyRadiusPx * 0.18, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // 鋼珠軸心
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.restore();
+      ctx.restore();
+    }
+
+    /* ============================================================
+       w-t 圖表繪製：動態適應 Y 軸比例，橫軸 15 秒
+       ============================================================ */
+    function drawGraph() {
+      const canvas = $('graphCanvas');
+      const ctx = canvas.getContext('2d');
+      fitCanvas(canvas);
+
+      const dpr = window.devicePixelRatio || 1;
+      const sw = canvas.width / dpr;
+      const sh = canvas.height / dpr;
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, sw, sh);
+
+      const padL = 52, padR = 15, padT = 14, padB = 22;
+      const pw = sw - padL - padR;
+      const ph = sh - padT - padB;
+
+      const maxT = 15.0;
+
+      // 基準峰值轉速：由既有歷史與當前運作數據決定；調整滑桿時不預先跳動，等開始轉動時再自動調整比例
+      let peakRpm = 2500;
+
+      // 若處於旋轉中或發射中，才納入當前初轉速以動態調整 Y 軸
+      if (state.status === 'spinning' || state.status === 'launching') {
+        if (state.omega0 > 0) {
+          peakRpm = Math.max(peakRpm, toRpm(state.omega0));
+        }
+      }
+
+      if (state.curData.length > 0) {
+        state.curData.forEach(pt => {
+          if (pt.rpm > peakRpm) peakRpm = pt.rpm;
+        });
+      }
+      state.history.forEach(h => {
+        h.pts.forEach(pt => {
+          if (pt.rpm > peakRpm) peakRpm = pt.rpm;
+        });
+      });
+
+      let maxRpm = Math.ceil((peakRpm * 1.18) / 500) * 500;
+      if (maxRpm < 2500) maxRpm = 2500;
+
+      const getY = rpm => {
+        const clampedRpm = Math.max(0, Math.min(rpm, maxRpm));
+        return padT + ph - (clampedRpm / maxRpm) * ph;
+      };
+
+      ctx.strokeStyle = '#21262d';
+      ctx.strokeRect(padL, padT, pw, ph);
+
+      // Y 軸刻度文字
+      ctx.fillStyle = '#6e7681';
+      ctx.font = '9px monospace';
+      ctx.fillText('0', padL - 12, padT + ph);
+      ctx.fillText(`${maxRpm.toLocaleString()}`, padL - 38, padT + 8);
+
+      const midY = padT + ph * 0.5;
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      ctx.beginPath(); ctx.moveTo(padL, midY); ctx.lineTo(padL + pw, midY); ctx.stroke();
+      ctx.fillText(`${Math.round(maxRpm * 0.5).toLocaleString()}`, padL - 38, midY + 4);
+
+      // X 軸 5秒, 10秒, 15秒 刻度線
+      const x5 = padL + pw * (5.0 / 15.0);
+      const x10 = padL + pw * (10.0 / 15.0);
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.beginPath();
+      ctx.moveTo(x5, padT); ctx.lineTo(x5, padT + ph);
+      ctx.moveTo(x10, padT); ctx.lineTo(x10, padT + ph);
+      ctx.stroke();
+
+      ctx.fillText('5s', x5 - 6, padT + ph + 14);
+      ctx.fillText('10s', x10 - 8, padT + ph + 14);
+      ctx.fillText('15s', padL + pw - 15, padT + ph + 14);
+
+      // 繪製歷史曲線
+      state.history.forEach(h => {
+        ctx.strokeStyle = h.color; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        h.pts.forEach((pt, idx) => {
+          const x = padL + Math.min(pt.t / maxT, 1.0) * pw;
+          const y = getY(pt.rpm);
+          if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+
+      // 繪製當前曲線
+      if (state.curData.length > 1) {
+        ctx.setLineDash([]); ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        state.curData.forEach((pt, idx) => {
+          const x = padL + Math.min(pt.t / maxT, 1.0) * pw;
+          const y = getY(pt.rpm);
+          if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    /* 物理數值模擬迴圈 */
+    let lastTime = performance.now();
+
+    function physicsLoop(now) {
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+
+      if (state.status === 'spinning') {
+        state.time += dt;
+
+        // 固定精確物理常數 (固定拉力做功 1.0J、固定摩擦阻矩與空氣阻尼)
+        const I = getI();
+        const tau_f = FIXED_PHYSICS.frictionTorque * (state.mass / 0.05);
+        const c = FIXED_PHYSICS.airDragCoeff;
+        const w0 = state.omega0;
+
+        // 精確解析解：保證同形狀、同質量、同半徑每次旋轉時間與總圈數 100% 絕對精確一致
+        const t_stop = (I / c) * Math.log(1 + (c * w0) / tau_f);
+        const revs_final = ((I * w0) / c - (tau_f / c) * t_stop) / (2 * Math.PI);
+
+        // 戰鬥盤內隨機動態漫遊 (向心恢復力與偏轉，絕不碰邊界)
+        const canvas = $('stageCanvas');
+        const dpr = window.devicePixelRatio || 1;
+        const sw = (canvas.width || 800) / dpr;
+        const sh = (canvas.height || 600) / dpr;
+        const arenaRadius = Math.min(sw * 0.38, sh * 0.36);
+        const beyRadiusPx = (state.radius / 0.03) * (arenaRadius * 0.24);
+        const maxR = Math.max(25, arenaRadius - beyRadiusPx - 42);
+
+        const curRpm = toRpm(state.omega);
+        const speedFactor = Math.min(curRpm / 2500, 1.0);
+
+        state.wanderAngle += (Math.random() - 0.5) * 8.0 * dt;
+        let fx = Math.cos(state.wanderAngle) * 130 * speedFactor;
+        let fy = Math.sin(state.wanderAngle) * 130 * speedFactor;
+
+        const curDist = Math.hypot(state.wanderX, state.wanderY);
+        if (curDist > 0.1) {
+          const dishK = 2.0 + (curDist / maxR) * 3.5;
+          fx -= (state.wanderX / curDist) * dishK * curDist;
+          fy -= (state.wanderY / curDist) * dishK * curDist;
+        }
+
+        const curl = 1.2 * speedFactor;
+        fx += -state.wanderVy * curl;
+        fy += state.wanderVx * curl;
+
+        state.wanderVx = (state.wanderVx + fx * dt) * 0.98;
+        state.wanderVy = (state.wanderVy + fy * dt) * 0.98;
+        state.wanderX += state.wanderVx * dt * 45 * speedFactor;
+        state.wanderY += state.wanderVy * dt * 45 * speedFactor;
+
+        const newDist = Math.hypot(state.wanderX, state.wanderY);
+        if (newDist > maxR) {
+          state.wanderX = (state.wanderX / newDist) * maxR;
+          state.wanderY = (state.wanderY / newDist) * maxR;
+          const dot = (state.wanderVx * state.wanderX + state.wanderVy * state.wanderY) / newDist;
+          if (dot > 0) {
+            state.wanderVx -= 1.6 * dot * (state.wanderX / newDist);
+            state.wanderVy -= 1.6 * dot * (state.wanderY / newDist);
+          }
+        }
+
+        if (state.time >= t_stop) {
+          // 精確抵達停止時間
+          state.time = t_stop;
+          state.omega = 0;
+          state.revs = revs_final;
+          state.status = 'stopped';
+          try { sound.stopHum(); } catch(e){}
+          recordRun();
+
+          // 轉完之後，陀螺與拉條恢復到初始位置，並開放選擇形狀與調整大小質量
+          if (returnTimer) clearTimeout(returnTimer);
+          returnTimer = setTimeout(() => {
+            state.status = 'idle';
+            state.ripcordFraction = 0;
+            state.dropProgress = 0;
+            state.wanderX = state.wanderY = state.wanderVx = state.wanderVy = state.wanderAngle = 0;
+            setControlsLocked(false);
+            $('pullTooltip').style.opacity = '1';
+            returnTimer = null;
+          }, 300);
+        } else {
+          // 解析角速度與圈數積分
+          const t = state.time;
+          state.omega = (w0 + tau_f / c) * Math.exp((-c * t) / I) - tau_f / c;
+          const theta = (I / c) * (w0 + tau_f / c) * (1 - Math.exp((-c * t) / I)) - (tau_f / c) * t;
+          state.angle = theta;
+          state.revs = theta / (2 * Math.PI);
+
+          const rpm = toRpm(state.omega);
+          if (!state.curData.length || state.time - state.curData[state.curData.length - 1].t > 0.05) {
+            state.curData.push({ t: state.time, rpm });
+          }
+          try { sound.updateHum(rpm); } catch(e){}
+        }
+
+        $('valRpm').innerHTML = `${Math.round(toRpm(state.omega)).toLocaleString()} <small>轉/分</small>`;
+        $('valTime').innerHTML = `${state.time.toFixed(2)} <small>秒</small>`;
+        $('valRevs').innerHTML = `${state.revs.toFixed(1)} <small>圈</small>`;
+      }
+
+      drawStage();
+      drawGraph();
+      requestAnimationFrame(physicsLoop);
+    }
+
+    /* ============================================================
+       滑鼠與觸控直接拖曳拉條 (拉完放開，直接開始轉)
+       ============================================================ */
+    function setupRipcordDrag() {
+      const canvas = $('stageCanvas');
+
+      function getCanvasCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+          x: clientX - rect.left,
+          y: clientY - rect.top
+        };
+      }
+
+      function onDown(e) {
+        if (state.status === 'spinning' || state.status === 'launching') return;
+        const p = getCanvasCoords(e);
+        const hit = state.handleHitArea;
+        if (!hit) return;
+
+        // 檢查是否點擊在紅色拉環或拉條附近 (放寬觸控與點擊判定半徑)
+        if (p.x >= hit.x - 50 && p.x <= hit.x + hit.w + 60 &&
+            p.y >= hit.y - 30 && p.y <= hit.y + hit.h + 30) {
+          state.isDraggingRipcord = true;
+          state.status = 'dragging';
+          state.dragStartX = p.x;
+          $('pullTooltip').style.opacity = '0';
+          if (e.cancelable) e.preventDefault();
+        }
+      }
+
+      function onMove(e) {
+        if (!state.isDraggingRipcord) return;
+        const p = getCanvasCoords(e);
+        const hit = state.handleHitArea;
+        if (!hit) return;
+
+        // 向右拉出的比例 (拉條拉開可自由向左放回)
+        const pullDistance = Math.max(0, p.x - (hit.slotX + 15));
+        const frac = Math.min(Math.max(pullDistance / hit.maxPullPx, 0), 1.0);
+        state.ripcordFraction = frac;
+
+        // 拉動發條時提示消失；若放回原位 (<=0.04) 則重新顯現
+        if (frac > 0.04) {
+          $('pullTooltip').style.opacity = '0';         } else {$('pullTooltip').style.opacity = '1';
+        }
+
+        // 齒軌音效
+        try { if (Math.random() < 0.25) sound.beep(300 + frac * 400, 0.04); } catch(err){}
+
+        // 拖曳過程中絕不發射，允許隨意拉開與放回
+        if (e.cancelable) e.preventDefault();
+      }
+
+      function onUp(e) {
+        if (!state.isDraggingRipcord) return;
+        state.isDraggingRipcord = false;
+
+        // 鬆手才發射：放開手時若拉條有被拉開 (>= 15%)，立即發射！
+        if (state.ripcordFraction >= 0.15) {
+          $('pullTooltip').style.opacity = '0';
+          executeDirectLaunch();
+        } else {
+          // 若推回原位放開，則彈回初始位置，不發射
+          state.ripcordFraction = 0;
+          state.status = 'idle';
+          $('pullTooltip').style.opacity = '1';
+        }
+      }
+
+      canvas.addEventListener('mousedown', onDown);
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+
+      canvas.addEventListener('touchstart', onDown, { passive: false });
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('touchend', onUp);
+    }
+
+    /* ============================================================
+       初始化與事件綁定
+       ============================================================ */
+    window.addEventListener('DOMContentLoaded', () => {
+      // 1. 形狀切換
+      document.querySelectorAll('.shape-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (state.status === 'spinning' || state.status === 'launching') return;
+          if (returnTimer) { clearTimeout(returnTimer); returnTimer = null; }
+          state.status = 'idle';
+          state.ripcordFraction = 0;
+          state.dropProgress = 0;
+          state.wanderX = state.wanderY = state.wanderVx = state.wanderVy = state.wanderAngle = 0;
+          setControlsLocked(false);
+          $('pullTooltip').style.opacity = '1';
+
+          document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.shape = btn.dataset.shape;
+          updateParams();
+          updateTooltipPos();
+        });
+      });
+
+      // 2. 質量與半徑滑桿
+      $('sliderMass').addEventListener('input', updateParams);$('sliderRadius').addEventListener('input', updateParams);
+
+      // 微調按鈕 (+ / -)
+      $('btnMassMinus').addEventListener('click', () => {
+        if ($('sliderMass').disabled) return;
+        const s = $('sliderMass');
+        s.value = Math.max(parseFloat(s.min), parseFloat(s.value) - parseFloat(s.step));
+        updateParams();
+      });
+      $('btnMassPlus').addEventListener('click', () => {
+        if ($('sliderMass').disabled) return;
+        const s = $('sliderMass');
+        s.value = Math.min(parseFloat(s.max), parseFloat(s.value) + parseFloat(s.step));
+        updateParams();
+      });
+
+      $('btnRadiusMinus').addEventListener('click', () => {
+        if ($('sliderRadius').disabled) return;
+        const s = $('sliderRadius');
+        s.value = Math.max(parseFloat(s.min), parseFloat(s.value) - parseFloat(s.step));
+        updateParams();
+      });
+      $('btnRadiusPlus').addEventListener('click', () => {
+        if ($('sliderRadius').disabled) return;
+        const s = $('sliderRadius');
+        s.value = Math.min(parseFloat(s.max), parseFloat(s.value) + parseFloat(s.step));
+        updateParams();
+      });
+
+      // 3. PhET 勾選框顯示切換
+      $('chkMetrics').addEventListener('change', e => {$('floatingHud').classList.toggle('hidden', !e.target.checked);
+      });
+      $('chkGraph').addEventListener('change', e => {$('floatingGraph').classList.toggle('hidden', !e.target.checked);
+      });
+      $('chkHistory').addEventListener('change', e => {$('floatingHistory').classList.toggle('hidden', !e.target.checked);
+      });
+
+      // 4. 重設按鈕與清除記錄
+      $('btnReset').addEventListener('click', resetSimulation);$('btnClearHistory').addEventListener('click', () => {
+        if (state.status === 'spinning' || state.status === 'launching') return;
+        state.history = [];
+        state.curData = [];
+        $('historyTableBody').innerHTML = '';
+        drawGraph();
+      });
+
+      // 5. 音效開關
+      $('soundBtn').addEventListener('click', () => {
+        sound.enabled = !sound.enabled;
+        $('soundBtn').textContent = sound.enabled ? '🔊 音效: 開' : '🔇 音效: 關';
+        if (!sound.enabled) sound.stopHum();
+      });
+
+      setupRipcordDrag();
+      updateParams();
+      requestAnimationFrame(physicsLoop);
+    });
+  </script>
+</body>
+</html>
