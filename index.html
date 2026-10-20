@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 16188)
+Total output lines: 1497
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -708,27 +711,7 @@
         if (p < 1.0) {
           requestAnimationFrame(animStep);
         } else {
-          // 進入戰鬥盤，正式進入高速旋轉與漫遊！
-          state.status = 'spinning';
-          state.omega = state.omega0 = w0;
-          state.time = 0;
-          state.revs = 0;
-          state.curData = [{ t: 0, rpm: toRpm(w0) }];
-          state.ripcordFraction = 0; // 發射後拉條完全歸位
-          state.wanderX = 0;
-          state.wanderY = 0;
-          state.wanderVx = (Math.random() - 0.5) * 80;
-          state.wanderVy = (Math.random() - 0.5) * 80;
-          state.wanderAngle = Math.random() * Math.PI * 2;
-
-          $('valOmega0').innerHTML = `${Math.round(toRpm(w0)).toLocaleString()} <small>轉/分</small>`;
-          try { sound.startHum(toRpm(w0)); } catch(e){}
-        }
-      }
-      requestAnimationFrame(animStep);
-    }
-
-    /* 重設就緒：恢復初始狀態並解鎖調整 */
+          // 進入戰鬥盤，正…188 tokens truncated…就緒：恢復初始狀態並解鎖調整 */
     function resetSimulation() {
       clearCountdown();
       if (returnTimer) { clearTimeout(returnTimer); returnTimer = null; }
@@ -748,6 +731,16 @@
       $('valRpm').innerHTML = `0 <small>轉/分</small>`;
       $('valTime').innerHTML = `0.00 <small>秒</small>`;
       $('valRevs').innerHTML = `0.0 <small>圈</small>`;
+    }
+
+    /* 關閉成績單就結束本局：清除旋轉歷程與圖表，回到新的待發射狀態 */
+    function startNextGameAfterReport() {
+      state.history = [];
+      state.curData = [];
+      $('historyTableBody').innerHTML = '';
+      resetSimulation();
+      $('btnEndGame').disabled = true;
+      drawGraph();
     }
 
     function predictConfiguration(shapeId, massG, radiusCm) {
@@ -1400,6 +1393,8 @@
     window.addEventListener('DOMContentLoaded', () => {
       $('btnEndGame').addEventListener('click', () => { if (state.history.length) { renderScoreReport(); $('scoreDialog').showModal(); } });
       $('btnCloseScore').addEventListener('click', () => $('scoreDialog').close());
+      // 無論按關閉或使用 Esc 關閉成績單，都清空本局資料並準備新的一局
+      $('scoreDialog').addEventListener('close', startNextGameAfterReport);
       // 1. 形狀切換
       document.querySelectorAll('.shape-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1482,3 +1477,4 @@
   </script>
 </body>
 </html>
+
