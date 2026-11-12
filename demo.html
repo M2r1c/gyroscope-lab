@@ -1,0 +1,1264 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>陀螺儀物理演示</title>
+<meta name="description" content="3D 陀螺儀：角動量、力矩、進動的即時向量，以及船上轉盤「往哪倒」的猜題。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* 陀螺儀實驗室：共用樣式 */
+:root {
+  --bg: #0c111a;
+  --bg2: #111827;
+  --panel: rgba(20, 27, 40, 0.92);
+  --panel-solid: #151d2b;
+  --line: rgba(148, 163, 184, 0.18);
+  --line-strong: rgba(148, 163, 184, 0.35);
+  --text: #e8edf5;
+  --muted: #93a1b5;
+  --accent: #f5b82e;
+  --accent-ink: #1b1405;
+  --p1: #ff5d5d;
+  --p2: #4c9dff;
+  /* 物理向量配色（全站一致） */
+  --vec-L: #4cc9f0;
+  --vec-tau: #ff5d73;
+  --vec-dL: #ffd166;
+  --vec-omega: #6ee7a8;
+  --vec-F: #e2e8f0;
+  --radius: 14px;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+  --sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+button { font-family: inherit; }
+.mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- 共用元件 ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 18px; border-radius: 10px;
+  border: 1px solid var(--line-strong); background: #1b2433; color: var(--text);
+  font-weight: 700; font-size: 15px; cursor: pointer; text-decoration: none;
+  transition: background .15s, border-color .15s, transform .08s;
+  user-select: none; -webkit-user-select: none; touch-action: manipulation;
+}
+.btn:hover { background: #232e40; border-color: rgba(245, 184, 46, 0.6); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: linear-gradient(180deg, #ffc941, #f0a81c); color: var(--accent-ink); border-color: #f0a81c; }
+.btn.primary:hover { background: linear-gradient(180deg, #ffd25c, #f5b030); }
+.btn.small { padding: 6px 12px; font-size: 13px; border-radius: 8px; }
+.btn.ghost { background: transparent; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line-strong);
+  background: #121a27; color: var(--text); font-weight: 600; font-size: 14px; cursor: pointer;
+}
+.chip.on { border-color: var(--accent); color: var(--accent); background: rgba(245, 184, 46, 0.1); }
+
+.seg { display: inline-flex; background: #0d131d; border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; color: var(--muted); font-weight: 700; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(8px); }
+.label { font-size: 13px; color: var(--muted); font-weight: 600; }
+
+/* 滑桿 */
+.field { margin: 12px 0; }
+.field-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.field-head .val { font-family: var(--mono); font-size: 14px; background: #0b1019; border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; min-width: 70px; text-align: right; }
+.field small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) var(--pct, 50%), #2a3446 var(--pct, 50%)); }
+input[type=range]::-moz-range-track { height: 5px; border-radius: 3px; background: #2a3446; }
+input[type=range]::-moz-range-progress { height: 5px; border-radius: 3px; background: var(--accent); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); margin-top: -6.5px; }
+input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); }
+input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+
+/* 數據格 */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat { background: #0e1520; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.stat .v { font-family: var(--mono); font-size: 17px; font-weight: 700; }
+.stat .v small { font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 3px; }
+
+/* 公式框 */
+.formula { font-family: "Times New Roman", serif; font-style: italic; font-size: 17px; background: #0b1019; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 8px 0; text-align: center; overflow-x: auto; }
+
+/* 彈出視窗 */
+.modal-bg { position: fixed; inset: 0; background: rgba(5, 8, 14, 0.72); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+.modal-bg.show { display: flex; }
+.modal { background: var(--panel-solid); border: 1px solid var(--line-strong); border-radius: 18px; width: min(860px, 100%); max-height: calc(100vh - 32px); overflow: auto; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); }
+.modal-head { position: sticky; top: 0; background: var(--panel-solid); display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 22px; border-bottom: 1px solid var(--line); z-index: 2; flex-wrap: wrap; }
+.modal-head h2 { margin: 0; font-size: 22px; }
+.modal-body { padding: 18px 22px 26px; }
+.modal-body h3 { color: var(--accent); margin: 22px 0 6px; font-size: 18px; }
+.modal-body table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0; }
+.modal-body th, .modal-body td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.modal-body th { color: var(--muted); font-weight: 600; }
+.icon-btn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line-strong); background: transparent; color: var(--text); font-size: 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+
+/* 頂欄 */
+.topbar { height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid var(--line); background: rgba(12, 17, 26, 0.95); position: relative; z-index: 20; }
+.topbar .brand { font-weight: 900; font-size: 18px; text-decoration: none; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.topbar .brand b { color: var(--accent); }
+.topbar .spacer { flex: 1; }
+
+/* 3D 畫面上的向量標籤 */
+.vlabel { position: absolute; pointer-events: none; font-weight: 800; font-size: 14px; padding: 1px 7px; border-radius: 6px; background: rgba(8, 12, 20, 0.75); white-space: nowrap; transform: translate(-50%, -50%); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; background: currentColor; }
+
+.toast-wrap { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; z-index: 30; width: max-content; max-width: calc(100% - 32px); }
+.toast { background: rgba(10, 14, 22, 0.88); border: 1px solid var(--line-strong); border-radius: 10px; padding: 6px 14px; font-size: 14px; animation: toastIn .25s ease-out; text-align: center; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+</style>
+<style>
+  html, body { overflow: hidden; }
+  .layout { display: grid; grid-template-columns: 1fr 380px; height: calc(100vh - 56px); height: calc(100dvh - 56px); }
+  .stage { position: relative; overflow: hidden; background: radial-gradient(900px 600px at 50% 30%, #1a2537, #0b1018); }
+  .stage canvas#c { display: block; width: 100%; height: 100%; }
+  #labels { position: absolute; inset: 0; pointer-events: none; }
+  .side { overflow-y: auto; border-left: 1px solid var(--line); background: #0f1520; padding: 14px 16px 40px; }
+  .side h3 { margin: 18px 0 6px; font-size: 15px; color: var(--accent); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .side h3:first-child { margin-top: 4px; }
+  .legend-box { position: absolute; left: 12px; bottom: 12px; padding: 8px 12px; }
+  .stage-tools { position: absolute; right: 12px; top: 12px; display: flex; gap: 8px; z-index: 5; }
+  .hold-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .hold-grid .btn { padding: 10px 8px; font-size: 14px; }
+  .hold-grid .btn.held { background: var(--accent); color: var(--accent-ink); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .check-row { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+  .check-row label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .hint { background: rgba(76, 201, 240, 0.08); border: 1px solid rgba(76, 201, 240, 0.3); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-top: 10px; }
+  .hint b { color: var(--vec-L); }
+  .missions { list-style: none; padding: 0; margin: 6px 0 0; font-size: 14px; }
+  .missions li { padding: 6px 8px 6px 30px; border-radius: 8px; position: relative; margin: 3px 0; background: #121a27; }
+  .missions li::before { content: ""; position: absolute; left: 9px; top: 10px; width: 13px; height: 13px; border-radius: 4px; border: 2px solid var(--line-strong); }
+  .missions li.done { color: var(--vec-omega); }
+  .missions li.done::before { background: var(--vec-omega); border-color: var(--vec-omega); }
+  details.explain { margin-top: 14px; background: #121a27; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  details.explain summary { cursor: pointer; font-weight: 800; color: var(--accent); }
+  details.explain p { margin: 8px 0; font-size: 14px; }
+  .status { font-weight: 800; font-size: 15px; padding: 6px 10px; border-radius: 8px; background: #121a27; border: 1px solid var(--line); margin-top: 8px; }
+  .status.ok { color: var(--vec-omega); } .status.bad { color: var(--vec-tau); } .status.warn { color: var(--vec-dL); }
+  /* 猜題 */
+  .qcard { background: linear-gradient(160deg, #1a2333, #121a27); border: 1px solid var(--line-strong); border-radius: 14px; padding: 14px; }
+  .qnum { font-family: var(--mono); color: var(--muted); font-size: 13px; display: flex; justify-content: space-between; }
+  .qtext { font-size: 17px; font-weight: 700; margin: 6px 0 12px; }
+  .qtext em { font-style: normal; color: var(--accent); }
+  .opts { display: grid; gap: 8px; }
+  .opt { text-align: left; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line-strong); background: #0f1620; color: var(--text); font-size: 15px; font-weight: 700; cursor: pointer; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt.right { border-color: var(--vec-omega); background: rgba(110, 231, 168, 0.12); }
+  .opt.wrong { border-color: var(--vec-tau); background: rgba(255, 93, 115, 0.12); }
+  .opt:disabled { cursor: default; }
+  .reveal { margin-top: 12px; font-size: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-size: 18px; font-weight: 900; margin-bottom: 4px; }
+  .rule { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 209, 102, 0.08); border: 1px solid rgba(255, 209, 102, 0.35); font-size: 14px; }
+  .graph { position: absolute; left: 12px; right: 12px; bottom: 12px; height: 150px; width: calc(100% - 24px); border-radius: 12px; background: rgba(9, 13, 20, 0.85); border: 1px solid var(--line); display: none; }
+  .bigstat { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .bigstat .stat .v { font-size: 22px; }
+  .tabs-scroll { overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .tabs-scroll::-webkit-scrollbar { display: none; }
+  .ttl { font-weight: 800; white-space: nowrap; }
+  @media (max-width: 900px) {
+    html, body { overflow: auto; }
+    .topbar { flex-wrap: wrap; height: auto; padding: 8px 12px; gap: 8px; }
+    .topbar .spacer { display: none; }
+    .ttl { display: none; }
+    .tabs-scroll { width: 100%; }
+    .layout { grid-template-columns: 1fr; height: auto; }
+    .stage { height: 58vh; height: 58svh; min-height: 320px; }
+    .side { border-left: 0; border-top: 1px solid var(--line); overflow: visible; padding: 14px 16px 40px; }
+    .legend-box { font-size: 12px; padding: 6px 8px; }
+    .graph { height: 110px; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">← 陀螺儀<b>實驗室</b></a>
+  <span class="ttl">A・陀螺儀物理演示</span>
+  <div class="spacer"></div>
+  <div class="tabs-scroll"><div class="seg" id="tabs">
+    <button data-tab="lab" class="on">進動實驗室</button>
+    <button data-tab="quiz">猜猜它往哪倒</button>
+    <button data-tab="cmp">轉子開關對照</button>
+  </div></div>
+</header>
+
+<main class="layout">
+  <section class="stage" id="stage">
+    <canvas id="c"></canvas>
+    <div id="labels"></div>
+    <div class="toast-wrap" id="toasts"></div>
+    <div class="stage-tools">
+      <button class="btn small" id="camReset">視角重設</button>
+    </div>
+    <div class="legend-box panel legend" id="legend">
+      <span style="color:var(--vec-L)">L 角動量</span>
+      <span style="color:var(--vec-tau)">τ 力矩</span>
+      <span style="color:var(--vec-dL)">ΔL 變化</span>
+      <span style="color:var(--vec-omega)" id="lgOmega">Ω 進動</span>
+    </div>
+    <canvas class="graph" id="graph"></canvas>
+  </section>
+
+  <aside class="side">
+    <!-- ================= 進動實驗室 ================= -->
+    <div data-pane="lab">
+      <h3>飛輪</h3>
+      <div class="field">
+        <div class="field-head"><span class="label">轉速</span><span class="val" id="vRpm">4000 rpm</span></div>
+        <input type="range" id="rpm" min="0" max="8000" step="100" value="4000">
+        <small>轉越快，L 越長，進動越慢</small>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <div class="seg" id="spinDir"><button data-v="1" class="on">正轉</button><button data-v="-1">反轉</button></div>
+        <label class="check-row"><label><input type="checkbox" id="motor" checked> 馬達持續供電</label></label>
+      </div>
+      <div class="field">
+        <div class="field-head"><span class="label">飛輪質量</span><span class="val" id="vMd">200 g</span></div>
+        <input type="range" id="md" min="50" max="400" step="10" value="200">
+      </div>
+      <div class="field">
+        <div class="field-head"><span class="label">飛輪半徑</span><span class="val" id="vR">4.0 cm</span></div>
+        <input type="range" id="R" min="2" max="6" step="0.1" value="4">
+        <small>I = ½ m R²：半徑加倍，轉動慣量變 4 倍</small>
+      </div>
+
+      <h3>力矩</h3>
+      <div class="field">
+        <div class="field-head"><span class="label">配重位置（150 g，在支點另一側）</span><span class="val" id="vDc">0.0 cm</span></div>
+        <input type="range" id="dc" min="0" max="15" step="0.1" value="0">
+        <small>配重越往外，抵銷的重力力矩越多</small>
+      </div>
+      <div class="label" style="margin:6px 0">按住按鈕＝用手施力在飛輪上</div>
+      <div class="hold-grid">
+        <button class="btn" data-hold="down">⬇ 往下壓</button>
+        <button class="btn" data-hold="up">⬆ 往上抬</button>
+        <button class="btn" data-hold="fwd">↻ 順著進動推</button>
+        <button class="btn" data-hold="back">↺ 逆著進動推</button>
+      </div>
+
+      <h3>播放</h3>
+      <div class="row">
+        <button class="btn primary small" id="release">放手（從靜止）</button>
+        <button class="btn small" id="releaseSmooth">平順放手</button>
+        <button class="btn small" id="pause">暫停</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <span class="label">速度</span>
+        <div class="seg" id="speed"><button data-v="1" class="on">1×</button><button data-v="0.25">¼×</button><button data-v="0.05">慢動作</button></div>
+      </div>
+      <div class="check-row" style="margin-top:10px">
+        <label><input type="checkbox" data-vec="L" checked> L</label>
+        <label><input type="checkbox" data-vec="tau" checked> τ</label>
+        <label><input type="checkbox" data-vec="dL" checked> ΔL</label>
+        <label><input type="checkbox" data-vec="omega" checked> Ω</label>
+        <label><input type="checkbox" data-vec="mg" checked> 重力</label>
+        <label><input type="checkbox" data-vec="trail" checked> 軌跡</label>
+      </div>
+
+      <h3>即時數據</h3>
+      <div class="stats">
+        <div class="stat"><div class="k">轉動慣量 I</div><div class="v" id="sI">–</div></div>
+        <div class="stat"><div class="k">角動量 L = Iω</div><div class="v" id="sL">–</div></div>
+        <div class="stat"><div class="k">力矩 τ</div><div class="v" id="sTau">–</div></div>
+        <div class="stat"><div class="k">理論 Ω = τ/(Iω)</div><div class="v" id="sOmT">–</div></div>
+        <div class="stat"><div class="k">實際進動 Ω</div><div class="v" id="sOm">–</div></div>
+        <div class="stat"><div class="k">進動一圈</div><div class="v" id="sPer">–</div></div>
+      </div>
+      <div class="status" id="status">–</div>
+      <div class="hint" id="hint"></div>
+
+      <h3>任務 <span class="label" id="missionCount">0 / 5</span></h3>
+      <ul class="missions" id="missions">
+        <li data-m="stop">讓進動停下來（但飛輪還在轉）</li>
+        <li data-m="reverse">讓進動反方向（有兩種方法）</li>
+        <li data-m="slow">讓進動一圈超過 6 秒</li>
+        <li data-m="rise">往旁邊推，讓飛輪抬頭</li>
+        <li data-m="fall">關掉馬達，看它慢慢倒下</li>
+      </ul>
+
+      <details class="explain">
+        <summary>為什麼它不會倒？（直覺 → 公式）</summary>
+        <p><b>直覺：</b>沒轉的時候，重力把飛輪往下拉，它當然會倒。轉起來以後，飛輪有一支很長的「角動量箭頭」<b style="color:var(--vec-L)">L</b>。重力產生的力矩 <b style="color:var(--vec-tau)">τ</b> 不會把箭頭變短，只會一直把箭頭的尖端往 τ 的方向推一點點，而 τ 永遠跟 L 垂直，所以箭頭只能繞圈。這個繞圈就是<b>進動</b>。</p>
+        <div class="formula">L = I ω　　τ = r × F　　ΔL = τ Δt</div>
+        <p>每過 Δt，L 轉過的角度是 ΔL / L = τΔt / (Iω)，所以</p>
+        <div class="formula">Ω = τ / (I ω)</div>
+        <p>轉越快（ω 大）或飛輪越重越大（I 大），進動越慢；力矩越大，進動越快。配重讓 τ 變成 0 時，進動停止；τ 變號，進動反向。</p>
+        <p><b>章動：</b>「從靜止放手」時，飛輪一開始還沒有進動速度，會先往下掉一點再被帶起來，軌跡出現小圈圈或尖點。這是章動，摩擦會讓它慢慢消失。按「平順放手」則一開始就給剛好的進動速度，沒有章動。</p>
+        <p><b>往旁邊推卻往上跑：</b>水平推力產生的力矩是鉛直方向的，它讓 L 往上或往下轉，所以你推它「水平」，它卻「抬頭」或「低頭」。這就是拿著陀螺儀時手被頂的感覺。</p>
+        <p style="color:var(--muted)">模型：一端支點的重對稱陀螺，用拉格朗日方程式數值積分（RK4，步長 0.5 ms）。軸最多下垂到水平以下 50°。</p>
+      </details>
+    </div>
+
+    <!-- ================= 猜猜它往哪倒 ================= -->
+    <div data-pane="quiz" hidden>
+      <div class="qcard" id="qcard">
+        <div class="qnum"><span id="qIndex">第 1 / 5 題</span><span id="qScore">答對 0</span></div>
+        <div class="qtext" id="qText">–</div>
+        <div class="opts" id="qOpts">
+          <button class="opt" data-a="bow">A. 往船頭倒</button>
+          <button class="opt" data-a="stern">B. 往船尾倒</button>
+          <button class="opt" data-a="none">C. 不會倒，跟著船一起晃</button>
+        </div>
+        <div class="reveal" id="qReveal">
+          <div class="verdict" id="qVerdict"></div>
+          <div id="qExplain"></div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn small" id="qReplay">重播</button>
+            <button class="btn primary small" id="qNext">下一題 →</button>
+          </div>
+        </div>
+      </div>
+      <div class="rule">
+        <b>判斷口訣：L 往 τ 跑</b><br>
+        ① 用右手：四指順著「船倒下去的方向」彎，大拇指指的就是船給轉盤的力矩 τ。<br>
+        ② 轉盤的角動量 L（右手四指順著轉盤轉，大拇指方向）會往 τ 的方向偏。
+      </div>
+
+      <h3>自由實驗</h3>
+      <div class="row">
+        <span class="label">轉盤</span>
+        <div class="seg" id="fSpin"><button data-v="1" class="on">逆時針</button><button data-v="-1">順時針</button><button data-v="0">停</button></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn small" id="fLeft">↶ 船往左搖</button>
+        <button class="btn small" id="fRight">船往右搖 ↷</button>
+      </div>
+      <small class="label" style="display:block;margin-top:6px">（俯視轉盤；「往右搖」= 右舷往下）</small>
+
+      <details class="explain">
+        <summary>這艘船的模型</summary>
+        <p>轉盤裝在一個「左右方向的鉸鏈」上，只能往船頭或船尾倒。轉盤架的重心在鉸鏈下方，所以沒有外力時會自己回正。</p>
+        <p>船往右搖時，船帶著轉盤一起繞「船頭方向」的軸轉，也就是對轉盤施加指向船頭的力矩 τ。轉盤的角動量 L 會往 τ 的方向偏，但鉸鏈只允許前後倒，所以轉盤往前或往後倒（看 L 朝上還是朝下）。</p>
+        <div class="formula">I<sub>架</sub> θ'' = L φ' − k θ − c θ'</div>
+        <p>θ 是轉盤前後倒的角度，φ' 是船搖晃的角速度。轉盤倒下的同時，也會反過來給船一個反向力矩 −L θ'，把船推回去，這就是船變穩的原因（見「轉子開關對照」）。</p>
+        <p style="color:var(--muted)">如果你們的實體轉盤是直接固定在船上（沒有鉸鏈），效果會變成整艘船一起進動，演示前要先確認支撐方式。</p>
+      </details>
+    </div>
+
+    <!-- ================= 轉子開關對照 ================= -->
+    <div data-pane="cmp" hidden>
+      <div class="bigstat">
+        <div class="stat"><div class="k" style="color:var(--p1)">左船：轉子關</div><div class="v" id="cOff">–</div></div>
+        <div class="stat"><div class="k" style="color:var(--vec-L)">右船：轉子開</div><div class="v" id="cOn">–</div></div>
+      </div>
+      <div class="status ok" id="cRed">–</div>
+      <h3>設定</h3>
+      <div class="field">
+        <div class="field-head"><span class="label">轉子轉速（右船）</span><span class="val" id="vCL">100 %</span></div>
+        <input type="range" id="cL" min="0" max="150" step="5" value="100">
+      </div>
+      <div class="field">
+        <div class="field-head"><span class="label">浪的大小</span><span class="val" id="vCA">0.30</span></div>
+        <input type="range" id="cA" min="0.05" max="0.6" step="0.01" value="0.3">
+      </div>
+      <div class="field">
+        <div class="field-head"><span class="label">浪的頻率（相對船的自然搖擺頻率）</span><span class="val" id="vCW">1.00 ×</span></div>
+        <input type="range" id="cW" min="0.5" max="1.6" step="0.01" value="1">
+        <small>1.00× 時共振，沒轉子的船搖最大</small>
+      </div>
+      <div class="field">
+        <div class="field-head"><span class="label">鉸鏈阻尼（消耗搖晃能量）</span><span class="val" id="vCG">0.25</span></div>
+        <input type="range" id="cG" min="0" max="1" step="0.01" value="0.25">
+      </div>
+      <div class="row">
+        <button class="btn small" id="cPause">暫停</button>
+        <button class="btn small" id="cReset">重新開始</button>
+      </div>
+      <details class="explain" open>
+        <summary>為什麼有轉的船比較穩？</summary>
+        <p><b>直覺：</b>浪想讓船左右搖，船就得帶著轉盤一起轉。但轉盤有角動量，被扭的時候不會乖乖跟著，而是「往旁邊倒」（往船頭或船尾）。它倒下的同時會頂回船一個反向力矩，把搖晃抵銷掉。鉸鏈的摩擦再把這份能量消耗掉。</p>
+        <div class="formula">I<sub>船</sub> φ'' = −k φ − c φ' − L θ' + τ<sub>浪</sub></div>
+        <p>−L θ' 就是轉盤頂回來的力矩。L 越大（轉越快），頂回來越多。下方的圖是兩艘船的傾斜角對時間。</p>
+        <p style="color:var(--muted)">把「鉸鏈阻尼」拉到 0 試試：搖晃還是會變小（共振頻率被轉盤改掉了），但能量只是在船和轉盤之間來回換。真的船用陀螺穩定器（例如 Seakeeper）也是在鉸鏈上加剎車來吸收能量。</p>
+      </details>
+    </div>
+  </aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* 簡易環繞相機：拖曳旋轉、滾輪／雙指縮放（不需額外函式庫） */
+(function (root) {
+  'use strict';
+  class Orbit {
+    constructor(camera, dom, opts) {
+      opts = opts || {};
+      this.camera = camera; this.dom = dom;
+      this.target = opts.target || new THREE.Vector3(0, 0, 0);
+      this.dist = opts.dist || 5; this.yaw = opts.yaw || 0.6; this.pitch = opts.pitch || 0.5;
+      this.minDist = opts.minDist || 1; this.maxDist = opts.maxDist || 30;
+      this.minPitch = opts.minPitch != null ? opts.minPitch : 0.05; this.maxPitch = opts.maxPitch || 1.5;
+      this.home = { dist: this.dist, yaw: this.yaw, pitch: this.pitch };
+      this.pointers = new Map();
+      dom.style.touchAction = 'none';
+      dom.addEventListener('pointerdown', e => { if (this.enabled === false) return; dom.setPointerCapture(e.pointerId); this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
+      dom.addEventListener('pointermove', e => {
+        if (this.enabled === false || !this.pointers.has(e.pointerId)) return;
+        const p = this.pointers.get(e.pointerId);
+        if (this.pointers.size === 1) {
+          this.yaw -= (e.clientX - p.x) * 0.008;
+          this.pitch = Math.max(this.minPitch, Math.min(this.maxPitch, this.pitch + (e.clientY - p.y) * 0.006));
+        } else if (this.pointers.size === 2) {
+          const pts = [...this.pointers.values()];
+          const d0 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          p.x = e.clientX; p.y = e.clientY;
+          const pts2 = [...this.pointers.values()];
+          const d1 = Math.hypot(pts2[0].x - pts2[1].x, pts2[0].y - pts2[1].y);
+          if (d0 > 0) this.zoom(d0 / d1);
+        }
+        p.x = e.clientX; p.y = e.clientY;
+        this.update();
+      });
+      const up = e => this.pointers.delete(e.pointerId);
+      dom.addEventListener('pointerup', up); dom.addEventListener('pointercancel', up);
+      dom.addEventListener('wheel', e => { if (this.enabled === false) return; e.preventDefault(); this.zoom(Math.exp(e.deltaY * 0.001)); this.update(); }, { passive: false });
+      this.update();
+    }
+    zoom(f) { this.dist = Math.max(this.minDist, Math.min(this.maxDist, this.dist * f)); }
+    reset() { Object.assign(this, this.home); this.update(); }
+    update() {
+      const c = Math.cos(this.pitch), t = this.target;
+      this.camera.position.set(t.x + this.dist * c * Math.sin(this.yaw), t.y + this.dist * Math.sin(this.pitch), t.z + this.dist * c * Math.cos(this.yaw));
+      this.camera.lookAt(t);
+    }
+  }
+  /* 讓 3D 物件旁邊顯示 HTML 標籤 */
+  function placeLabel(el, pos3, camera, w, h) {
+    const v = pos3.clone().project(camera);
+    if (v.z > 1) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.style.left = ((v.x + 1) / 2 * w) + 'px';
+    el.style.top = ((1 - v.y) / 2 * h) + 'px';
+  }
+  /* 滑桿進度條顏色 */
+  function paintRange(input) {
+    const pct = (input.value - input.min) / (input.max - input.min) * 100;
+    input.style.setProperty('--pct', pct + '%');
+  }
+  root.Orbit = Orbit; root.placeLabel = placeLabel; root.paintRange = paintRange;
+})(this);
+
+</script>
+<script>
+/* 陀螺儀物理核心（不依賴畫面，可單獨測試）
+ * 座標（物理）：x 向前、y 向左、z 向上（右手座標）
+ * 1) HeavyTop：一端支點的陀螺儀（重對稱陀螺），可算進動、章動、倒下
+ * 2) BoatGyro：船＋鉸鏈轉盤（船體橫搖 φ 與轉盤前後俯仰 θ 的耦合）
+ */
+(function (root) {
+  'use strict';
+  const g = 9.8;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  /* ---------- 1. 重對稱陀螺（支點在軸的一端） ----------
+   * θ：軸與鉛直向上的夾角（90° = 水平）；φ：進動角（俯視逆時針為正）
+   * ψ：自轉角；ω3：飛輪自轉角速度（沿軸，從支點指向飛輪為正）
+   * pφ = I1 φ' sin²θ + I3 ω3 cosθ （鉛直方向角動量，只被鉛直力矩改變）
+   * I1 θ'' = I1 φ'² sinθ cosθ − I3 ω3 φ' sinθ + τg sinθ
+   * τg = g(m_d l_d − m_c d_c) + 使用者往下推的力 × 力臂 */
+  class HeavyTop {
+    constructor(p) {
+      this.p = Object.assign({
+        md: 0.2, R: 0.04, ld: 0.08,   // 飛輪質量、半徑、到支點距離
+        mc: 0.15, dc: 0.0,            // 配重質量、配重到支點距離（另一側）
+        rpm: 4000, motor: true,       // 轉速、馬達是否持續供電
+        damp: 0.0006, dampYaw: 0.00015, bearing: 0.06 // 支點阻尼、軸承衰減率 (1/s)
+      }, p || {});
+      this.forceDown = 0;  // 使用者施力（N，在飛輪處，往下為正）
+      this.forceSide = 0;  // 使用者水平推力（N，沿進動正方向）
+      this.reset();
+    }
+    get I3() { return 0.5 * this.p.md * this.p.R * this.p.R; }
+    get I1() { const p = this.p; return p.md * (p.R * p.R / 4 + p.ld * p.ld) + p.mc * p.dc * p.dc + 0.00015; }
+    get tauG() { const p = this.p; return g * (p.md * p.ld - p.mc * p.dc); }
+    get tau() { return this.tauG + this.forceDown * this.p.ld; }
+    get L() { return this.I3 * this.w3; }
+    /* 快速陀螺的理論進動角速度 Ω = τ / (I3 ω3) */
+    get omegaTheory() { return Math.abs(this.w3) < 1e-6 ? NaN : this.tau / (this.I3 * this.w3); }
+    get phiDot() {
+      const s = Math.sin(this.th);
+      return (this.pphi - this.I3 * this.w3 * Math.cos(this.th)) / (this.I1 * s * s);
+    }
+    reset(opts) {
+      opts = opts || {};
+      this.t = 0;
+      this.th = Math.PI / 2; this.thd = 0;
+      this.phi = opts.phi || 0; this.psi = 0;
+      this.w3 = this.p.rpm * Math.PI / 30;
+      this.fallen = false;
+      // smooth=true：一開始就給剛好的進動速度 → 沒有章動
+      const phid0 = opts.smooth && Math.abs(this.w3) > 1 ? this.tau / (this.I3 * this.w3) : 0;
+      this.pphi = this.I1 * phid0 + this.I3 * this.w3 * Math.cos(this.th);
+    }
+    setRpm(rpm) { this.p.rpm = rpm; if (this.p.motor) this.w3 = rpm * Math.PI / 30; }
+    deriv(s) {
+      const [th, thd, , pphi] = s;
+      const p = this.p, I1 = this.I1, I3w = this.I3 * this.w3;
+      const sn = Math.max(Math.sin(th), 0.05), cs = Math.cos(th);
+      const phid = (pphi - I3w * cs) / (I1 * sn * sn);
+      let thdd = (I1 * phid * phid * sn * cs - I3w * phid * sn + this.tau * sn - p.damp * thd) / I1;
+      // 擋塊：軸最多往下垂到 θ=140°、往上到 40°
+      const lo = 40 * Math.PI / 180, hi = 140 * Math.PI / 180;
+      if (th > hi) thdd += (-(th - hi) * 400 - thd * 25);
+      if (th < lo) thdd += (-(th - lo) * 400 - thd * 25);
+      const dpphi = this.forceSide * p.ld * sn - p.dampYaw * phid;
+      return [thd, thdd, phid, dpphi, this.w3 - phid * cs];
+    }
+    step(dt) {
+      if (!this.p.motor) { // 馬達關掉：軸承摩擦讓轉速慢慢下降
+        const w0 = this.w3;
+        this.w3 = w0 * Math.exp(-this.p.bearing * dt) - Math.sign(w0) * 2 * dt;
+        if (w0 * this.w3 <= 0) this.w3 = 0;
+        // 自轉變慢時 pφ 不變（鉛直方向沒有外力矩），由 deriv 自動處理
+      }
+      const s = [this.th, this.thd, this.phi, this.pphi, this.psi];
+      const k1 = this.deriv(s);
+      const a = (k, h) => s.map((v, i) => v + k[i] * h);
+      const k2 = this.deriv(a(k1, dt / 2));
+      const k3 = this.deriv(a(k2, dt / 2));
+      const k4 = this.deriv(a(k3, dt));
+      const n = s.map((v, i) => v + dt / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]));
+      [this.th, this.thd, this.phi, this.pphi, this.psi] = n;
+      this.t += dt;
+      this.fallen = this.th > 135 * Math.PI / 180 || this.th < 45 * Math.PI / 180;
+    }
+    /* 軸方向單位向量（物理座標） */
+    axis() {
+      const s = Math.sin(this.th);
+      return [s * Math.cos(this.phi), s * Math.sin(this.phi), Math.cos(this.th)];
+    }
+    /* 重力（含施力）力矩向量 τ = r × F，水平且垂直於軸 */
+    torqueVec() {
+      const n = this.axis(); // ẑ × n = (−n_y, n_x, 0)
+      return [-n[1] * this.tau, n[0] * this.tau, 0];
+    }
+  }
+
+  /* ---------- 2. 船＋鉸鏈轉盤 ----------
+   * φ：船橫搖（繞 x 軸，正 = 往右舷傾）；θ：轉盤繞橫向鉸鏈俯仰（正 = 轉盤頂端往船頭倒）
+   * L：轉盤角動量（正 = 俯視逆時針、L 朝上）
+   * 推導：dL/dt = (φ' x̂ + θ' ŷ) × Lẑ = L(θ' x̂ − φ' ŷ)
+   *   鉸鏈方向（ŷ）沒有力矩可傳 → I_g θ'' = L φ' − k_g sinθ − c_g θ'
+   *   船受到反作用力矩 → I_b φ'' = −k_b φ − c_b φ' − L θ' cosθ + τ外
+   * 兩個耦合項一正一負，總能量守恆（陀螺力不做功） */
+  class BoatGyro {
+    constructor(p) {
+      this.p = Object.assign({
+        Ib: 1.0, kb: 4.0, cb: 0.12,   // 船：橫搖慣量、浮力回正、水阻
+        Ig: 0.06, kg: 0.35, cg: 0.25, // 轉盤架：俯仰慣量、重心偏低的回正、鉸鏈阻尼
+        L: 1.0,                       // 轉盤角動量（正 = 逆時針）
+        maxTip: 1.0                   // 鉸鏈擋塊（rad）
+      }, p || {});
+      this.reset();
+    }
+    reset() { this.t = 0; this.phi = 0; this.phid = 0; this.th = 0; this.thd = 0; this.tauExt = 0; }
+    deriv(s) {
+      const [phi, phid, th, thd] = s, p = this.p;
+      const c = Math.cos(th);
+      let thdd = (p.L * phid * c - p.kg * Math.sin(th) - p.cg * thd) / p.Ig;
+      const m = p.maxTip;
+      if (th > m) thdd += (-(th - m) * 300 - thd * 20);
+      if (th < -m) thdd += (-(th + m) * 300 - thd * 20);
+      const phidd = (-p.kb * phi - p.cb * phid - p.L * thd * c + this.tauExt) / p.Ib;
+      return [phid, phidd, thd, thdd];
+    }
+    step(dt) {
+      const s = [this.phi, this.phid, this.th, this.thd];
+      const k1 = this.deriv(s);
+      const a = (k, h) => s.map((v, i) => v + k[i] * h);
+      const k2 = this.deriv(a(k1, dt / 2));
+      const k3 = this.deriv(a(k2, dt / 2));
+      const k4 = this.deriv(a(k3, dt));
+      [this.phi, this.phid, this.th, this.thd] = s.map((v, i) => v + dt / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]));
+      this.t += dt;
+    }
+    energy() {
+      const p = this.p;
+      return 0.5 * p.Ib * this.phid ** 2 + 0.5 * p.kb * this.phi ** 2 + 0.5 * p.Ig * this.thd ** 2 + p.kg * (1 - Math.cos(this.th));
+    }
+  }
+
+  const api = { HeavyTop, BoatGyro, g, clamp };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.GyroPhysics = api;
+})(this);
+
+</script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const { HeavyTop, BoatGyro } = GyroPhysics;
+const COL = { L: 0x4cc9f0, tau: 0xff5d73, dL: 0xffd166, omega: 0x6ee7a8, F: 0xe2e8f0, push: 0xc084fc };
+const S = 10; // 1 公尺 = 10 個場景單位
+
+/* ---------- Three.js 基本設定 ---------- */
+const stage = $('#stage'), canvas = $('#c'), labelLayer = $('#labels');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x000000, 0);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
+
+function addLights(scene) {
+  scene.add(new THREE.HemisphereLight(0xdfe9ff, 0x1a2230, 0.9));
+  const d = new THREE.DirectionalLight(0xffffff, 0.9); d.position.set(4, 8, 5); scene.add(d);
+}
+function mat(color, o) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.5, metalness: 0.15 }, o || {})); }
+
+/* 粗箭頭：圓柱 + 圓錐 */
+function makeArrow(color, r) {
+  r = r || 0.035;
+  const g = new THREE.Group();
+  const m = mat(color, { emissive: color, emissiveIntensity: 0.35, roughness: 0.4 });
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1, 12), m);
+  shaft.geometry.translate(0, 0.5, 0);
+  const head = new THREE.Mesh(new THREE.ConeGeometry(r * 2.8, r * 7, 16), m);
+  g.add(shaft, head); g.userData = { shaft, head, hl: r * 7 };
+  g.set = (origin, dir, len) => {
+    if (!(len > 0.03) || dir.lengthSq() < 1e-12) { g.visible = false; return; }
+    g.visible = true;
+    g.position.copy(origin);
+    g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    const hl = Math.min(g.userData.hl, len * 0.5);
+    shaft.scale.y = Math.max(len - hl, 0.001);
+    head.scale.set(hl / g.userData.hl, hl / g.userData.hl, hl / g.userData.hl);
+    head.position.y = len - hl / 2;
+  };
+  return g;
+}
+/* 彎箭頭：在 XY 平面、逆時針，箭頭在終點 */
+function makeCurvedArrow(radius, arc, color, tube) {
+  tube = tube || 0.035;
+  const g = new THREE.Group();
+  const m = mat(color, { emissive: color, emissiveIntensity: 0.35 });
+  const tor = new THREE.Mesh(new THREE.TorusGeometry(radius, tube, 8, 48, arc), m);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(tube * 3, tube * 8, 14), m);
+  cone.position.set(radius * Math.cos(arc), radius * Math.sin(arc), 0);
+  cone.rotation.z = arc; // 圓錐預設朝 +y，轉到切線方向
+  g.add(tor, cone);
+  return g;
+}
+function makeLabel(text, color) {
+  const el = document.createElement('div');
+  el.className = 'vlabel'; el.textContent = text; el.style.color = color;
+  labelLayer.appendChild(el); return el;
+}
+function toast(msg, ms) {
+  const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = msg;
+  $('#toasts').appendChild(t); setTimeout(() => t.remove(), ms || 2600);
+}
+const fmt = (v, d) => (isFinite(v) ? v.toFixed(d) : '–');
+function bindRange(id, outId, f) {
+  const el = $('#' + id); const out = outId && $('#' + outId);
+  const upd = () => { paintRange(el); if (out) out.textContent = f ? f(+el.value) : el.value; };
+  el.addEventListener('input', upd); upd(); return el;
+}
+function segBind(id, cb) {
+  const seg = $('#' + id);
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    cb(b.dataset.v);
+  });
+}
+function setSeg(id, v) { $$('#' + id + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === String(v))); }
+
+/* =====================================================================
+   1. 進動實驗室
+   ===================================================================== */
+const lab = (() => {
+  const scene = new THREE.Scene();
+  addLights(scene);
+  const PIV = new THREE.Vector3(0, 1.6, 0);
+  // 地面
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(4, 64), mat(0x1c2738, { roughness: 0.9 }));
+  ground.rotation.x = -Math.PI / 2; scene.add(ground);
+  const grid = new THREE.PolarGridHelper(4, 16, 6, 64, 0x2c3a50, 0x243146); scene.add(grid);
+  // 底座與立柱
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 0.12, 40), mat(0xc0392b));
+  base.position.y = 0.06; scene.add(base);
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.55, 16), mat(0x9aa7b8, { metalness: 0.6 }));
+  post.position.y = 0.12 + 0.775; scene.add(post);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.08, 20, 16), mat(0xdfe6ee, { metalness: 0.7 }));
+  ball.position.copy(PIV); scene.add(ball);
+
+  // 陀螺儀：yaw（進動角 φ）→ pitch（仰角）→ 軸沿 +x
+  const yaw = new THREE.Group(); yaw.position.copy(PIV); scene.add(yaw);
+  const pitch = new THREE.Group(); yaw.add(pitch);
+  const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 2.9, 12), mat(0xcfd8e3, { metalness: 0.8 }));
+  axle.rotation.z = Math.PI / 2; axle.position.x = -0.15; pitch.add(axle);
+  const spin = new THREE.Group(); pitch.add(spin);
+  const wheel = new THREE.Group(); spin.add(wheel);
+  const cw = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.2, 24), mat(0x7d8a9c, { metalness: 0.6 }));
+  cw.rotation.z = Math.PI / 2; pitch.add(cw);
+  function buildWheel(R) {
+    while (wheel.children.length) { const c = wheel.children.pop(); c.geometry.dispose(); }
+    const r = R * S;
+    const disk = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.14, 48), mat(0xf5b82e, { metalness: 0.3 }));
+    disk.rotation.z = Math.PI / 2; wheel.add(disk);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.04, 10, 48), mat(0xffd36b, { metalness: 0.5 }));
+    rim.rotation.y = Math.PI / 2; wheel.add(rim);
+    // 條紋：看得出在轉
+    for (let i = 0; i < 4; i++) {
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.16, r * 0.85, 0.05), mat(i % 2 ? 0x1f2937 : 0xb45309));
+      const a = i * Math.PI / 2;
+      s.position.set(0, Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.5);
+      s.rotation.x = -a; wheel.add(s);
+    }
+  }
+
+  // 向量
+  const arrows = {
+    L: makeArrow(COL.L, 0.045), tau: makeArrow(COL.tau, 0.04), dL: makeArrow(COL.dL, 0.035),
+    omega: makeArrow(COL.omega, 0.04), mg: makeArrow(COL.F, 0.025), push: makeArrow(COL.push, 0.035)
+  };
+  Object.values(arrows).forEach(a => scene.add(a));
+  const omegaRing = makeCurvedArrow(0.35, Math.PI * 1.5, COL.omega, 0.02);
+  const omegaRingWrap = new THREE.Group(); omegaRingWrap.add(omegaRing); omegaRingWrap.rotation.x = -Math.PI / 2;
+  omegaRingWrap.position.copy(PIV).add(new THREE.Vector3(0, 0.95, 0)); scene.add(omegaRingWrap);
+  const labels = {
+    L: makeLabel('L', 'var(--vec-L)'), tau: makeLabel('τ', 'var(--vec-tau)'), dL: makeLabel('ΔL', 'var(--vec-dL)'),
+    omega: makeLabel('Ω', 'var(--vec-omega)'), mg: makeLabel('mg', 'var(--vec-F)'), push: makeLabel('手', '#c084fc')
+  };
+  // 軌跡（飛輪中心走過的路）
+  const NTR = 900;
+  const trGeo = new THREE.BufferGeometry();
+  const trPos = new Float32Array(NTR * 3);
+  trGeo.setAttribute('position', new THREE.BufferAttribute(trPos, 3));
+  const trail = new THREE.Line(trGeo, new THREE.LineBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.7 }));
+  trail.frustumCulled = false; scene.add(trail);
+  let trN = 0, trAcc = 0;
+
+  const top = new HeavyTop();
+  const st = { spinDir: 1, speed: 1, paused: false, show: { L: true, tau: true, dL: true, omega: true, mg: true, trail: true },
+    hold: null, omSmooth: 0, visSpin: 0, missions: {}, rise0: null, defaultSign: 1 };
+
+  function applyParams() {
+    const p = top.p;
+    p.md = +$('#md').value / 1000; p.R = +$('#R').value / 100; p.dc = +$('#dc').value / 100;
+    const rpm = +$('#rpm').value * st.spinDir;
+    p.rpm = rpm; p.motor = $('#motor').checked;
+    if (p.motor) top.w3 = rpm * Math.PI / 30;
+    cw.position.x = -p.dc * S; cw.visible = p.dc > 0.001;
+    spin.position.x = p.ld * S;
+  }
+  let lastR = null;
+  function onParam() {
+    applyParams();
+    if (lastR !== top.p.R) { buildWheel(top.p.R); lastR = top.p.R; }
+  }
+  bindRange('rpm', 'vRpm', v => v + ' rpm');
+  bindRange('md', 'vMd', v => v + ' g');
+  bindRange('R', 'vR', v => v.toFixed(1) + ' cm');
+  bindRange('dc', 'vDc', v => v.toFixed(1) + ' cm');
+  ['rpm', 'md', 'R', 'dc'].forEach(id => $('#' + id).addEventListener('input', onParam));
+  $('#motor').addEventListener('change', () => {
+    top.p.motor = $('#motor').checked;
+    if (top.p.motor) { top.w3 = top.p.rpm * Math.PI / 30; toast('馬達供電：轉速維持固定'); }
+    else toast('馬達關掉：軸承摩擦會讓轉速慢慢下降，注意進動變快');
+  });
+  segBind('spinDir', v => { st.spinDir = +v; onParam(); toast(st.spinDir > 0 ? '正轉：L 指向飛輪外側' : '反轉：L 指向支點，進動方向跟著反過來'); });
+  segBind('speed', v => { st.speed = +v; });
+  $$('[data-vec]').forEach(c => c.addEventListener('change', () => { st.show[c.dataset.vec] = c.checked; }));
+  function release(smooth) {
+    onParam();
+    if (!top.p.motor) top.w3 = top.p.rpm * Math.PI / 30;
+    top.reset({ smooth, phi: top.phi });
+    trN = 0; st.omSmooth = isFinite(top.omegaTheory) && smooth ? top.omegaTheory : 0;
+    st.paused = false; $('#pause').textContent = '暫停';
+  }
+  $('#release').onclick = () => release(false);
+  $('#releaseSmooth').onclick = () => release(true);
+  $('#pause').onclick = () => { st.paused = !st.paused; $('#pause').textContent = st.paused ? '繼續' : '暫停'; };
+  // 按住施力
+  $$('[data-hold]').forEach(b => {
+    const on = e => { e.preventDefault(); st.hold = b.dataset.hold; b.classList.add('held'); st.rise0 = top.th; };
+    const off = () => { if (st.hold === b.dataset.hold) st.hold = null; b.classList.remove('held'); };
+    b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off);
+    b.addEventListener('pointerleave', off); b.addEventListener('pointercancel', off);
+  });
+
+  const v3 = (a) => new THREE.Vector3(a[0], a[2], -a[1]); // 物理 (x,y,z) → 場景 (x, z, −y)
+
+  function step(dt) {
+    if (st.paused) return;
+    const F = 0.8; // 手的力 (N)
+    const sgnOm = Math.sign(top.omegaTheory) || 1;
+    top.forceDown = st.hold === 'down' ? F : st.hold === 'up' ? -F : 0;
+    top.forceSide = st.hold === 'fwd' ? F * sgnOm : st.hold === 'back' ? -F * sgnOm : 0;
+    const sim = dt * st.speed, h = 1 / 2000;
+    const n = Math.min(400, Math.max(1, Math.round(sim / h)));
+    for (let i = 0; i < n; i++) top.step(sim / n);
+    const k = 1 - Math.exp(-sim / 0.6);
+    st.omSmooth += (top.phiDot - st.omSmooth) * k;
+    // 畫面上的自轉：真實轉速太快會看起來亂跳，這裡用放慢的轉速表示方向
+    st.visSpin += Math.sign(top.w3) * Math.min(Math.abs(top.w3), 30) * 0.5 * dt * Math.max(st.speed, 0.15);
+    trAcc += sim;
+  }
+
+  function update(w, hgt) {
+    const n = top.axis();
+    yaw.rotation.y = top.phi;
+    pitch.rotation.z = Math.PI / 2 - top.th;
+    spin.rotation.x = st.visSpin;
+    const wheelPos = PIV.clone().add(v3(n).multiplyScalar(top.p.ld * S));
+    // 軌跡
+    if (trAcc > 0.004 || trN === 0) {
+      trAcc = 0;
+      if (trN < NTR) trN++; else trPos.copyWithin(0, 3);
+      trPos[(trN - 1) * 3] = wheelPos.x; trPos[(trN - 1) * 3 + 1] = wheelPos.y; trPos[(trN - 1) * 3 + 2] = wheelPos.z;
+      trGeo.setDrawRange(0, trN); trGeo.attributes.position.needsUpdate = true;
+    }
+    trail.visible = st.show.trail;
+    // 向量長度換算（場景單位）
+    const L = top.L, tau = top.tau;
+    const Llen = Math.min(2.4, Math.abs(L) / 0.067 * 1.2);
+    const Ldir = v3(n).multiplyScalar(Math.sign(L) || 1);
+    arrows.L.set(wheelPos, Ldir, st.show.L ? Llen : 0);
+    const tv = v3(top.torqueVec());
+    const tlen = Math.min(2.0, Math.abs(tau) / 0.157 * 0.9);
+    arrows.tau.set(PIV, tv, st.show.tau ? tlen : 0);
+    const Ltip = wheelPos.clone().add(Ldir.clone().multiplyScalar(Llen));
+    arrows.dL.set(Ltip, tv, st.show.dL && Llen > 0.1 ? Math.min(0.7, tlen * 0.45) : 0);
+    const om = st.omSmooth;
+    const olen = Math.min(1.6, Math.abs(om) * 0.25);
+    arrows.omega.set(PIV.clone().add(new THREE.Vector3(0, 0.1, 0)), new THREE.Vector3(0, Math.sign(om) || 1, 0), st.show.omega ? olen : 0);
+    omegaRingWrap.visible = st.show.omega && Math.abs(om) > 0.05 && !top.fallen;
+    omegaRing.scale.y = om >= 0 ? 1 : -1;
+    omegaRingWrap.rotation.z = -top.phi * 0; // 固定位置
+    const mgLen = 0.35 + top.p.md * 2.2;
+    arrows.mg.set(wheelPos, new THREE.Vector3(0, -1, 0), st.show.mg ? mgLen : 0);
+    // 手的施力箭頭
+    if (st.hold) {
+      let d;
+      if (st.hold === 'down') d = new THREE.Vector3(0, -1, 0);
+      else if (st.hold === 'up') d = new THREE.Vector3(0, 1, 0);
+      else { const s = Math.sign(top.forceSide); d = new THREE.Vector3(-n[1], 0, -n[0]).multiplyScalar(s); }
+      const start = wheelPos.clone().sub(d.clone().multiplyScalar(0.9));
+      arrows.push.set(start, d, 0.7);
+    } else arrows.push.visible = false;
+    // 標籤
+    const place = (key, obj, pos) => {
+      const el = labels[key];
+      if (!obj.visible) { el.style.display = 'none'; return; }
+      placeLabel(el, pos, camera, w, hgt);
+    };
+    place('L', arrows.L, wheelPos.clone().add(Ldir.clone().multiplyScalar(Llen + 0.25)));
+    place('tau', arrows.tau, PIV.clone().add(tv.clone().normalize().multiplyScalar(tlen + 0.25)));
+    place('dL', arrows.dL, Ltip.clone().add(tv.clone().normalize().multiplyScalar(Math.min(0.7, tlen * 0.45) + 0.22)));
+    place('omega', arrows.omega, PIV.clone().add(new THREE.Vector3(0.3, 0.1 + olen + 0.15, 0)));
+    place('mg', arrows.mg, wheelPos.clone().add(new THREE.Vector3(0.22, -mgLen - 0.12, 0)));
+    place('push', arrows.push, wheelPos.clone().sub(arrows.push.visible ? new THREE.Vector3() : new THREE.Vector3()).add(new THREE.Vector3(0, 0.35, 0)));
+    readouts();
+  }
+
+  let rdT = 0;
+  function readouts() {
+    const now = performance.now(); if (now - rdT < 120) return; rdT = now;
+    const I = top.I3, L = top.L, tau = top.tau, omT = top.omegaTheory, om = st.omSmooth;
+    $('#sI').innerHTML = fmt(I * 1e7, 0) + '<small>g·cm²</small>';
+    $('#sL').innerHTML = fmt(L * 1000, 1) + '<small>×10⁻³ kg·m²/s</small>';
+    $('#sTau').innerHTML = fmt(tau, 3) + '<small>N·m</small>';
+    $('#sOmT').innerHTML = (Math.abs(top.w3) < 5 ? '∞' : fmt(omT, 2)) + '<small>rad/s</small>';
+    $('#sOm').innerHTML = fmt(om, 2) + '<small>rad/s</small>';
+    $('#sPer').innerHTML = (Math.abs(om) < 0.02 || top.fallen ? '–' : fmt(2 * Math.PI / Math.abs(om), 1)) + '<small>秒</small>';
+    if (!top.p.motor) $('#vRpm').textContent = Math.abs(Math.round(top.w3 * 30 / Math.PI)) + ' rpm（滑行中）';
+    const elev = 90 - top.th * 180 / Math.PI;
+    const s = $('#status');
+    let hint;
+    if (top.fallen) { s.className = 'status bad'; s.textContent = '倒下了（軸碰到擋塊）'; }
+    else if (Math.abs(elev) > 15) { s.className = 'status warn'; s.textContent = `軸${elev > 0 ? '抬頭' : '低頭'} ${Math.abs(elev).toFixed(0)}°，仍在進動`; }
+    else { s.className = 'status ok'; s.textContent = `穩定進動中（軸傾角 ${elev.toFixed(1)}°）`; }
+    const rpm = Math.abs(top.w3 * 30 / Math.PI);
+    if (rpm < 50) hint = '飛輪<b>沒有轉</b> → L = 0。重力力矩直接改變的是「倒下的角速度」，所以它像普通的棍子一樣倒下。';
+    else if (Math.abs(tau) < 0.006) hint = '配重剛好抵銷飛輪的重量，<b>τ ≈ 0</b> → L 不變 → 不進動。陀螺儀「停在空中」。';
+    else if (st.hold === 'fwd') hint = '你在<b>水平</b>推它，力矩卻是<b>鉛直</b>的 → L 往上轉，所以飛輪抬頭。';
+    else if (st.hold === 'back') hint = '逆著進動推：力矩朝下 → L 往下轉 → 飛輪低頭。';
+    else if (st.hold === 'down') hint = '往下壓 = 力矩變大 → Ω = τ/(Iω) 變大，進動加快（它不會往下掉）。';
+    else if (st.hold === 'up') hint = '往上抬 = 力矩變小 → 進動變慢。';
+    else if (!top.p.motor) hint = `馬達關掉後 ω 越來越小，Ω = τ/(Iω) 越來越大，<b>進動越來越快</b>，最後撐不住倒下。現在 ${rpm.toFixed(0)} rpm。`;
+    else if (tau < 0) hint = '配重太重，<b>τ 變號</b>（換成配重那端往下）→ 進動反過來。';
+    else hint = `τ 永遠跟 L 垂直，只改變 L 的方向不改變長度 → L 繞圈。這一圈要 ${fmt(2 * Math.PI / Math.abs(om || 1e-9), 1)} 秒。`;
+    $('#hint').innerHTML = hint;
+    // 任務
+    const done = k => { if (!st.missions[k]) { st.missions[k] = true; $(`[data-m="${k}"]`).classList.add('done'); toast('✓ 任務完成：' + $(`[data-m="${k}"]`).textContent); $('#missionCount').textContent = Object.keys(st.missions).length + ' / 5'; } };
+    if (!top.fallen && rpm > 300 && Math.abs(tau) < 0.006) done('stop');
+    if (!top.fallen && rpm > 300 && om < -0.05) done('reverse');
+    if (!top.fallen && Math.abs(om) > 0.01 && 2 * Math.PI / Math.abs(om) > 6 && Math.abs(tau) > 0.006) done('slow');
+    if (st.hold === 'fwd' && st.rise0 != null && st.rise0 - top.th > 5 * Math.PI / 180) done('rise');
+    if (!top.p.motor && top.fallen) done('fall');
+  }
+
+  onParam(); buildWheel(top.p.R); lastR = top.p.R; top.reset({ smooth: false });
+  const orbit = new Orbit(camera, canvas, { target: new THREE.Vector3(0, 1.3, 0), dist: 6.2, yaw: 0.55, pitch: 0.42, minDist: 2.5, maxDist: 14 });
+  return { scene, step, update, orbit, labels: Object.values(labels), legendOmega: 'Ω 進動', show() {}, hide() { st.hold = null; } };
+})();
+
+/* =====================================================================
+   船的 3D 模型（猜題與對照共用）
+   ===================================================================== */
+function makeBoat(hullColor) {
+  const g = new THREE.Group();
+  const roll = new THREE.Group(); g.add(roll);
+  // 船殼：參數曲面（u 沿船長、v 沿橫截面）
+  const LEN = 3.0, W = 0.62, D = 0.5, NU = 40, NV = 20;
+  const pos = [], idx = [];
+  for (let i = 0; i <= NU; i++) {
+    const s = i / NU * 2 - 1;
+    const w = s > 0 ? W * Math.sqrt(Math.max(0, 1 - Math.pow(s, 2.2))) : W * Math.sqrt(Math.max(0.05, 1 - Math.pow(-s, 6) * 0.75));
+    const d = s > 0 ? D * (1 - 0.35 * s * s) : D;
+    for (let j = 0; j <= NV; j++) {
+      const a = j / NV * Math.PI;
+      pos.push(s * LEN / 2, -d * Math.sin(a) + 0.12, -w * Math.cos(a));
+    }
+  }
+  for (let i = 0; i < NU; i++) for (let j = 0; j < NV; j++) {
+    const a = i * (NV + 1) + j, b = a + NV + 1;
+    idx.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+  const hg = new THREE.BufferGeometry();
+  hg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); hg.setIndex(idx); hg.computeVertexNormals();
+  const hull = new THREE.Mesh(hg, mat(hullColor, { side: THREE.DoubleSide, roughness: 0.6 }));
+  roll.add(hull);
+  // 船緣
+  const rimPts = [];
+  for (let i = 0; i <= NU; i++) { const k = i * (NV + 1); rimPts.push(new THREE.Vector3(pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2])); }
+  for (let i = NU; i >= 0; i--) { const k = i * (NV + 1) + NV; rimPts.push(new THREE.Vector3(pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2])); }
+  roll.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rimPts), new THREE.LineBasicMaterial({ color: 0xffffff })));
+  // 支架與鉸鏈（左右方向）
+  const fr = mat(0x8b97a8, { metalness: 0.5 });
+  for (const z of [-0.42, 0.42]) {
+    const p = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.55, 0.06), fr); p.position.set(0, 0.0, z); roll.add(p);
+  }
+  const hinge = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 12), mat(0xdfe6ee, { metalness: 0.8 }));
+  hinge.rotation.x = Math.PI / 2; hinge.position.y = 0.25; roll.add(hinge);
+  // 轉盤架（繞鉸鏈前後倒）
+  const gimbal = new THREE.Group(); gimbal.position.y = 0.25; roll.add(gimbal);
+  const batt = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.22, 0.2), mat(0x334155)); batt.position.y = -0.2; gimbal.add(batt);
+  const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.2, 20), mat(0x64748b, { metalness: 0.6 })); motor.position.y = 0.06; gimbal.add(motor);
+  const rotor = new THREE.Group(); rotor.position.y = 0.2; gimbal.add(rotor);
+  const disk = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.06, 40), mat(0xf5b82e, { metalness: 0.3 })); rotor.add(disk);
+  for (let i = 0; i < 3; i++) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.07), mat(0x1f2937));
+    const a = i * Math.PI * 2 / 3; m.position.set(Math.cos(a) * 0.17, 0.01, Math.sin(a) * 0.17); m.rotation.y = -a; rotor.add(m);
+  }
+  // 自轉方向的彎箭頭（俯視）
+  const spinArrowWrap = new THREE.Group(); spinArrowWrap.rotation.x = -Math.PI / 2; spinArrowWrap.position.y = 0.32; gimbal.add(spinArrowWrap);
+  const spinArrow = makeCurvedArrow(0.46, Math.PI * 1.3, 0x4cc9f0, 0.022); spinArrowWrap.add(spinArrow);
+  // 角動量箭頭（跟著轉盤架一起倒）
+  const Larrow = makeArrow(COL.L, 0.04); gimbal.add(Larrow);
+  return { g, roll, gimbal, rotor, spinArrow, spinArrowWrap, Larrow, LEN };
+}
+function makeWater(size) {
+  const geo = new THREE.PlaneGeometry(size, size, 48, 48); geo.rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x1d6fa5, transparent: true, opacity: 0.78, roughness: 0.25, metalness: 0.1 }));
+  const base = Float32Array.from(geo.attributes.position.array);
+  m.userData.wave = (t, amp) => {
+    const p = geo.attributes.position.array;
+    for (let i = 0; i < p.length; i += 3) {
+      const x = base[i], z = base[i + 2];
+      p[i + 1] = amp * (Math.sin(z * 1.3 + t * 2) * 0.6 + Math.sin(x * 0.7 + z * 0.4 + t * 1.3) * 0.4);
+    }
+    geo.attributes.position.needsUpdate = true; geo.computeVertexNormals();
+  };
+  return m;
+}
+/* 船搖晃的彎箭頭（繞船頭方向的軸） */
+function makeRollArrow(color) {
+  const outer = new THREE.Group();
+  const inner = new THREE.Group(); outer.add(inner);
+  const arc = Math.PI * 0.6;
+  const a = makeCurvedArrow(0.9, arc, color, 0.03);
+  a.rotation.z = Math.PI / 2 - arc / 2; inner.add(a);
+  outer.rotation.y = Math.PI / 2; // 平面法線轉到 +x（船頭方向）
+  outer.setDir = d => { inner.scale.y = d >= 0 ? 1 : -1; };
+  return outer;
+}
+
+/* =====================================================================
+   2. 猜猜它往哪倒
+   ===================================================================== */
+const quiz = (() => {
+  const scene = new THREE.Scene();
+  scene.background = null;
+  addLights(scene);
+  const water = makeWater(30); scene.add(water);
+  const boat = makeBoat(0xe8eef6); scene.add(boat.g);
+  const rollArrow = makeRollArrow(0xc084fc); rollArrow.position.set(1.9, 0.5, 0); scene.add(rollArrow);
+  const tauArrow = makeArrow(COL.tau, 0.04); scene.add(tauArrow);
+  const dLArrow = makeArrow(COL.dL, 0.035); scene.add(dLArrow);
+  const labels = {
+    bow: makeLabel('船頭', '#fff'), stern: makeLabel('船尾', '#fff'), stbd: makeLabel('右舷', '#94a3b8'), port: makeLabel('左舷', '#94a3b8'),
+    L: makeLabel('L', 'var(--vec-L)'), tau: makeLabel('τ', 'var(--vec-tau)'), dL: makeLabel('ΔL', 'var(--vec-dL)'), roll: makeLabel('', '#c084fc')
+  };
+  const sim = new BoatGyro({ cb: 0.35, L: 1 });
+  const st = { spin: 1, mode: 'ask', qs: [], qi: 0, score: 0, answered: false, push: 0, pushT: 0, speed: 1, visSpin: 0, rollDir: 1, playT: 0, cur: null };
+  const LMAG = 1.0;
+
+  function makeQuestions() {
+    const base = [{ spin: 1, roll: 1 }, { spin: 1, roll: -1 }, { spin: -1, roll: 1 }, { spin: -1, roll: -1 }, { spin: 0, roll: 1 }];
+    for (let i = base.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [base[i], base[j]] = [base[j], base[i]]; }
+    // 第一題固定給最基本的情況
+    const k = base.findIndex(q => q.spin === 1 && q.roll === 1); [base[0], base[k]] = [base[k], base[0]];
+    return base;
+  }
+  const answerOf = q => q.spin === 0 ? 'none' : (q.spin * q.roll > 0 ? 'bow' : 'stern');
+  function setSpin(s) { st.spin = s; sim.p.L = s * LMAG; }
+  function showQuestion() {
+    const q = st.qs[st.qi]; st.cur = q; st.answered = false; st.mode = 'ask';
+    setSpin(q.spin); sim.reset(); st.push = 0;
+    rollArrow.setDir(q.roll); rollArrow.visible = true; st.rollDir = q.roll;
+    $('#qIndex').textContent = `第 ${st.qi + 1} / ${st.qs.length} 題`;
+    $('#qScore').textContent = `答對 ${st.score}`;
+    const spinTxt = q.spin === 0 ? '<em>沒有在轉</em>（馬達關掉）' : `從上往下看是<em>${q.spin > 0 ? '逆時針' : '順時針'}</em>轉`;
+    $('#qText').innerHTML = `轉盤${spinTxt}。把船<em>往${q.roll > 0 ? '右' : '左'}搖</em>一下（${q.roll > 0 ? '右' : '左'}舷往下），轉盤會往哪倒？`;
+    $$('#qOpts .opt').forEach(b => { b.disabled = false; b.classList.remove('right', 'wrong'); });
+    $('#qReveal').classList.remove('show');
+    labels.roll.textContent = `船往${q.roll > 0 ? '右' : '左'}搖`;
+  }
+  function play() {
+    sim.reset(); st.push = st.rollDir * 2.0; st.pushT = 0.5; st.mode = 'play'; st.playT = 0; st.speed = 0.4;
+  }
+  function explain(q, ok) {
+    const ans = answerOf(q);
+    const name = { bow: '往船頭倒', stern: '往船尾倒', none: '不會倒' }[ans];
+    $('#qVerdict').innerHTML = ok ? `<span style="color:var(--vec-omega)">答對了！${name}</span>` : `<span style="color:var(--vec-tau)">答案是：${name}</span>`;
+    let html;
+    if (q.spin === 0) {
+      html = '轉盤沒有轉 → <b style="color:var(--vec-L)">L = 0</b>，沒有陀螺效應。鉸鏈只能前後轉，左右搖晃帶不動它，所以它只是跟著船一起晃。';
+    } else {
+      const tauDir = q.roll > 0 ? '船頭' : '船尾';
+      const Ldir = q.spin > 0 ? '朝上' : '朝下';
+      html = `① 船往${q.roll > 0 ? '右' : '左'}搖：右手四指順著倒下方向彎，大拇指指向<b style="color:var(--vec-tau)">${tauDir}</b>，這是船給轉盤的力矩 τ。<br>` +
+        `② 轉盤${q.spin > 0 ? '逆' : '順'}時針轉，L ${Ldir}。<b style="color:var(--vec-dL)">L 的尖端往 τ 的方向（${tauDir}）移動</b>。<br>` +
+        `③ ${q.spin > 0 ? 'L 朝上，尖端往' + tauDir + '跑 → 轉盤上緣往' + tauDir + '倒' : 'L 朝下，下端往' + tauDir + '跑 → 轉盤上緣反而往' + (tauDir === '船頭' ? '船尾' : '船頭') + '倒'}。`;
+    }
+    $('#qExplain').innerHTML = html;
+  }
+  $('#qOpts').addEventListener('click', e => {
+    const b = e.target.closest('.opt'); if (!b || st.answered) return;
+    st.answered = true;
+    const q = st.cur, ans = answerOf(q), ok = b.dataset.a === ans;
+    if (ok) st.score++;
+    $$('#qOpts .opt').forEach(x => { x.disabled = true; if (x.dataset.a === ans) x.classList.add('right'); });
+    if (!ok) b.classList.add('wrong');
+    $('#qScore').textContent = `答對 ${st.score}`;
+    explain(q, ok);
+    play();
+    setTimeout(() => $('#qReveal').classList.add('show'), 2200);
+  });
+  $('#qReplay').onclick = () => play();
+  $('#qNext').onclick = () => {
+    if (st.qi + 1 < st.qs.length) { st.qi++; showQuestion(); }
+    else {
+      $('#qVerdict').innerHTML = `完成！${st.qs.length} 題答對 <span style="color:var(--accent)">${st.score}</span> 題`;
+      $('#qExplain').innerHTML = st.score === st.qs.length ? '全對！你已經會用「L 往 τ 跑」判斷了。下面的自由實驗可以自己再試。' : '多看幾次動畫：黃色 ΔL 箭頭總是跟紅色 τ 同方向。按「再玩一次」會重新出題。';
+      $('#qNext').textContent = '再玩一次';
+      $('#qNext').onclick = () => { st.qs = makeQuestions(); st.qi = 0; st.score = 0; $('#qNext').textContent = '下一題 →'; $('#qNext').onclick = nextHandler; showQuestion(); };
+    }
+  };
+  const nextHandler = $('#qNext').onclick;
+  // 自由實驗
+  segBind('fSpin', v => { setSpin(+v); st.mode = 'free'; sim.reset(); });
+  const freePush = d => {
+    st.mode = 'free'; st.rollDir = d; rollArrow.setDir(d); rollArrow.visible = true; labels.roll.textContent = `船往${d > 0 ? '右' : '左'}搖`;
+    st.push = d * 2.0; st.pushT = 0.5; st.speed = 0.6;
+    if (!st.cur || st.answered || st.mode === 'free') { /* 不影響題目 */ }
+  };
+  $('#fLeft').onclick = () => freePush(-1);
+  $('#fRight').onclick = () => freePush(1);
+
+  function step(dt) {
+    const simDt = dt * st.speed, h = 1 / 1000;
+    const n = Math.min(200, Math.max(1, Math.round(simDt / h)));
+    for (let i = 0; i < n; i++) {
+      if (st.pushT > 0) { sim.tauExt = st.push; st.pushT -= simDt / n; } else sim.tauExt = 0;
+      sim.step(simDt / n);
+    }
+    st.playT += simDt;
+    st.visSpin += st.spin * 9 * dt;
+  }
+  const wv = new THREE.Vector3();
+  function update(w, hgt, t) {
+    water.userData.wave(t, 0.03);
+    boat.roll.rotation.x = sim.phi;
+    boat.gimbal.rotation.z = -sim.th;
+    boat.rotor.rotation.y = st.visSpin;
+    boat.spinArrowWrap.visible = st.spin !== 0;
+    boat.spinArrow.scale.y = st.spin >= 0 ? 1 : -1;
+    boat.spinArrow.rotation.z = st.visSpin * 0.3;
+    boat.Larrow.set(new THREE.Vector3(0, 0.23, 0), new THREE.Vector3(0, st.spin || 1, 0), st.spin === 0 ? 0 : 0.95);
+    // 力矩與 ΔL：只在船正在被搖的時候顯示（船帶著轉盤轉 → 需要力矩）
+    const rotorW = boat.rotor.getWorldPosition(wv).clone();
+    const active = Math.abs(sim.phid) > 0.05 && st.spin !== 0;
+    const s = Math.sign(sim.phid);
+    const tlen = Math.min(1.2, Math.abs(sim.phid) * 2.2);
+    tauArrow.set(rotorW.clone().add(new THREE.Vector3(0, 0.0, 0)), new THREE.Vector3(s, 0, 0), active ? tlen : 0);
+    const Ltip = new THREE.Vector3(0, 0.23 + 0.95 * (st.spin || 1), 0); boat.gimbal.localToWorld(Ltip);
+    dLArrow.set(Ltip, new THREE.Vector3(s, 0, 0), active ? Math.min(0.6, tlen * 0.6) : 0);
+    rollArrow.visible = st.mode === 'ask' || st.pushT > 0;
+    // 標籤
+    const pl = (el, v) => placeLabel(el, v, camera, w, hgt);
+    pl(labels.bow, new THREE.Vector3(1.75, 0.45, 0));
+    pl(labels.stern, new THREE.Vector3(-1.75, 0.45, 0));
+    pl(labels.stbd, new THREE.Vector3(0, 0.2, 0.95));
+    pl(labels.port, new THREE.Vector3(0, 0.2, -0.95));
+    if (st.spin !== 0) { const p = new THREE.Vector3(0.18, 0.23 + 1.12 * (st.spin || 1), 0); boat.gimbal.localToWorld(p); pl(labels.L, p); } else labels.L.style.display = 'none';
+    if (tauArrow.visible) pl(labels.tau, rotorW.clone().add(new THREE.Vector3(s * (tlen + 0.2), -0.12, 0))); else labels.tau.style.display = 'none';
+    if (dLArrow.visible) pl(labels.dL, Ltip.clone().add(new THREE.Vector3(s * 0.45, 0.15, 0))); else labels.dL.style.display = 'none';
+    if (rollArrow.visible) pl(labels.roll, new THREE.Vector3(1.9, 1.55, 0)); else labels.roll.style.display = 'none';
+  }
+  st.qs = makeQuestions(); showQuestion();
+  const orbit = new Orbit(camera, canvas, { target: new THREE.Vector3(0, 0.3, 0), dist: 6.0, yaw: 0.75, pitch: 0.42, minDist: 2.5, maxDist: 14 });
+  return { scene, step, update, orbit, labels: Object.values(labels), legendOmega: 'Ω 進動', show() {}, hide() {} };
+})();
+
+/* =====================================================================
+   3. 轉子開關對照
+   ===================================================================== */
+const cmp = (() => {
+  const scene = new THREE.Scene();
+  addLights(scene);
+  const water = makeWater(34); scene.add(water);
+  const bOff = makeBoat(0xffc9c9); bOff.g.position.z = 1.6; scene.add(bOff.g);
+  const bOn = makeBoat(0xd3f1ff); bOn.g.position.z = -1.6; scene.add(bOn.g);
+  bOff.Larrow.visible = false; bOff.spinArrowWrap.visible = false;
+  const labels = { off: makeLabel('轉子關', 'var(--p1)'), on: makeLabel('轉子開', 'var(--vec-L)') };
+  const P = { cb: 0.35 };
+  const sOff = new BoatGyro(Object.assign({}, P, { L: 0 }));
+  const sOn = new BoatGyro(Object.assign({}, P, { L: 1 }));
+  const st = { paused: false, t: 0, hist: [], amp: 0.3, wr: 1, vis: 0 };
+  const wn = Math.sqrt(sOff.p.kb / sOff.p.Ib);
+  bindRange('cL', 'vCL', v => v + ' %').addEventListener('input', e => { sOn.p.L = +e.target.value / 100; });
+  bindRange('cA', 'vCA', v => v.toFixed(2)).addEventListener('input', e => { st.amp = +e.target.value; });
+  bindRange('cW', 'vCW', v => v.toFixed(2) + ' ×').addEventListener('input', e => { st.wr = +e.target.value; });
+  bindRange('cG', 'vCG', v => v.toFixed(2)).addEventListener('input', e => { sOn.p.cg = +e.target.value; });
+  $('#cPause').onclick = () => { st.paused = !st.paused; $('#cPause').textContent = st.paused ? '繼續' : '暫停'; };
+  $('#cReset').onclick = () => { sOff.reset(); sOn.reset(); st.t = 0; st.hist = []; };
+  let hAcc = 0;
+  function step(dt) {
+    if (st.paused) return;
+    const h = 1 / 500, n = Math.max(1, Math.round(dt / h));
+    for (let i = 0; i < n; i++) {
+      const tau = st.amp * Math.sin(wn * st.wr * st.t);
+      sOff.tauExt = tau; sOn.tauExt = tau;
+      sOff.step(dt / n); sOn.step(dt / n); st.t += dt / n;
+    }
+    hAcc += dt;
+    if (hAcc > 1 / 30) { hAcc = 0; st.hist.push([st.t, sOff.phi, sOn.phi]); while (st.hist.length && st.t - st.hist[0][0] > 20) st.hist.shift(); }
+    st.vis += 9 * dt * Math.min(1, sOn.p.L);
+  }
+  function amp(i) { let m = 0; for (const r of st.hist) if (st.t - r[0] < 10) m = Math.max(m, Math.abs(r[i])); return m; }
+  const gc = $('#graph'), gx = gc.getContext('2d');
+  function drawGraph() {
+    const dpr = Math.min(devicePixelRatio, 2), W = gc.clientWidth, H = gc.clientHeight;
+    if (gc.width !== W * dpr) { gc.width = W * dpr; gc.height = H * dpr; }
+    gx.setTransform(dpr, 0, 0, dpr, 0, 0); gx.clearRect(0, 0, W, H);
+    const pad = 34, x0 = pad, x1 = W - 10, mid = H / 2;
+    const maxA = Math.max(0.2, amp(1) * 1.15, amp(2) * 1.15);
+    gx.strokeStyle = 'rgba(148,163,184,0.25)'; gx.lineWidth = 1;
+    gx.beginPath(); gx.moveTo(x0, mid); gx.lineTo(x1, mid); gx.stroke();
+    gx.fillStyle = '#93a1b5'; gx.font = '11px JetBrains Mono, monospace';
+    gx.fillText('+' + (maxA * 57.3).toFixed(0) + '°', 2, 14); gx.fillText('−' + (maxA * 57.3).toFixed(0) + '°', 2, H - 6); gx.fillText('0°', 10, mid + 4);
+    gx.fillText('傾斜角（最近 20 秒）', x0 + 6, 14);
+    const tEnd = st.t, X = t => x1 - (tEnd - t) / 20 * (x1 - x0), Y = a => mid - a / maxA * (mid - 10);
+    for (const [i, c] of [[1, '#ff5d5d'], [2, '#4cc9f0']]) {
+      gx.strokeStyle = c; gx.lineWidth = 2; gx.beginPath();
+      st.hist.forEach((r, k) => { const x = X(r[0]), y = Y(r[i]); k ? gx.lineTo(x, y) : gx.moveTo(x, y); }); gx.stroke();
+    }
+  }
+  let rdT = 0;
+  function update(w, hgt, t) {
+    water.userData.wave(st.t, 0.02 + st.amp * 0.12);
+    bOff.roll.rotation.x = sOff.phi; bOff.gimbal.rotation.z = -sOff.th;
+    bOn.roll.rotation.x = sOn.phi; bOn.gimbal.rotation.z = -sOn.th;
+    bOn.rotor.rotation.y = st.vis;
+    bOn.spinArrow.rotation.z = st.vis * 0.3;
+    const on = sOn.p.L > 0.01;
+    bOn.Larrow.set(new THREE.Vector3(0, 0.23, 0), new THREE.Vector3(0, 1, 0), on ? 0.4 + 0.55 * sOn.p.L : 0);
+    bOn.spinArrowWrap.visible = on;
+    placeLabel(labels.off, new THREE.Vector3(0, 1.5, 1.6), camera, w, hgt);
+    placeLabel(labels.on, new THREE.Vector3(0, 1.75, -1.6), camera, w, hgt);
+    drawGraph();
+    const now = performance.now();
+    if (now - rdT > 200) {
+      rdT = now;
+      const a1 = amp(1) * 57.3, a2 = amp(2) * 57.3;
+      $('#cOff').innerHTML = '±' + a1.toFixed(1) + '<small>°</small>';
+      $('#cOn').innerHTML = '±' + a2.toFixed(1) + '<small>°</small>';
+      const red = a1 > 0.5 ? (1 - a2 / a1) * 100 : 0;
+      $('#cRed').textContent = st.t < 6 ? '浪正在把船搖起來…' : (red > 0 ? `有轉子的船搖晃減少 ${red.toFixed(0)}%` : '兩艘船搖得差不多');
+    }
+  }
+  const orbit = new Orbit(camera, canvas, { target: new THREE.Vector3(0, 0.2, 0), dist: 7.5, yaw: 1.25, pitch: 0.38, minDist: 3, maxDist: 16 });
+  return { scene, step, update, orbit, labels: Object.values(labels), show() { gc.style.display = 'block'; }, hide() { gc.style.display = 'none'; } };
+})();
+
+/* ---------- 分頁與主迴圈 ---------- */
+const views = { lab, quiz, cmp };
+let cur = 'lab';
+function setTab(name) {
+  views[cur].hide();
+  cur = name;
+  $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  $$('[data-pane]').forEach(p => p.hidden = p.dataset.pane !== name);
+  Object.entries(views).forEach(([k, v]) => { v.orbit.enabled = k === name; v.labels.forEach(l => l.style.visibility = k === name ? 'visible' : 'hidden'); });
+  $('#lgOmega').style.display = name === 'lab' ? '' : 'none';
+  $('#legend').style.display = name === 'cmp' ? 'none' : '';
+  views[name].show();
+  views[name].orbit.update();
+  resize();
+}
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTab(b.dataset.tab); });
+$('#camReset').onclick = () => views[cur].orbit.reset();
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const v = views[cur];
+  v.step(dt);
+  const w = stage.clientWidth, h = stage.clientHeight;
+  v.update(w, h, now / 1000);
+  renderer.render(v.scene, camera);
+  requestAnimationFrame(loop);
+}
+setTab(location.hash === '#quiz' ? 'quiz' : location.hash === '#cmp' ? 'cmp' : 'lab');
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

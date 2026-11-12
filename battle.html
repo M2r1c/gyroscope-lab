@@ -1,0 +1,1303 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>戰鬥陀螺對決</title>
+<meta name="description" content="設定質量、轉速、外型與尖端，在碗形場地對戰，學轉動慣量、角動量與碰撞。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* 陀螺儀實驗室：共用樣式 */
+:root {
+  --bg: #0c111a;
+  --bg2: #111827;
+  --panel: rgba(20, 27, 40, 0.92);
+  --panel-solid: #151d2b;
+  --line: rgba(148, 163, 184, 0.18);
+  --line-strong: rgba(148, 163, 184, 0.35);
+  --text: #e8edf5;
+  --muted: #93a1b5;
+  --accent: #f5b82e;
+  --accent-ink: #1b1405;
+  --p1: #ff5d5d;
+  --p2: #4c9dff;
+  /* 物理向量配色（全站一致） */
+  --vec-L: #4cc9f0;
+  --vec-tau: #ff5d73;
+  --vec-dL: #ffd166;
+  --vec-omega: #6ee7a8;
+  --vec-F: #e2e8f0;
+  --radius: 14px;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+  --sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+button { font-family: inherit; }
+.mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- 共用元件 ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 18px; border-radius: 10px;
+  border: 1px solid var(--line-strong); background: #1b2433; color: var(--text);
+  font-weight: 700; font-size: 15px; cursor: pointer; text-decoration: none;
+  transition: background .15s, border-color .15s, transform .08s;
+  user-select: none; -webkit-user-select: none; touch-action: manipulation;
+}
+.btn:hover { background: #232e40; border-color: rgba(245, 184, 46, 0.6); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: linear-gradient(180deg, #ffc941, #f0a81c); color: var(--accent-ink); border-color: #f0a81c; }
+.btn.primary:hover { background: linear-gradient(180deg, #ffd25c, #f5b030); }
+.btn.small { padding: 6px 12px; font-size: 13px; border-radius: 8px; }
+.btn.ghost { background: transparent; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line-strong);
+  background: #121a27; color: var(--text); font-weight: 600; font-size: 14px; cursor: pointer;
+}
+.chip.on { border-color: var(--accent); color: var(--accent); background: rgba(245, 184, 46, 0.1); }
+
+.seg { display: inline-flex; background: #0d131d; border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; color: var(--muted); font-weight: 700; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(8px); }
+.label { font-size: 13px; color: var(--muted); font-weight: 600; }
+
+/* 滑桿 */
+.field { margin: 12px 0; }
+.field-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.field-head .val { font-family: var(--mono); font-size: 14px; background: #0b1019; border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; min-width: 70px; text-align: right; }
+.field small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) var(--pct, 50%), #2a3446 var(--pct, 50%)); }
+input[type=range]::-moz-range-track { height: 5px; border-radius: 3px; background: #2a3446; }
+input[type=range]::-moz-range-progress { height: 5px; border-radius: 3px; background: var(--accent); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); margin-top: -6.5px; }
+input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); }
+input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+
+/* 數據格 */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat { background: #0e1520; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.stat .v { font-family: var(--mono); font-size: 17px; font-weight: 700; }
+.stat .v small { font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 3px; }
+
+/* 公式框 */
+.formula { font-family: "Times New Roman", serif; font-style: italic; font-size: 17px; background: #0b1019; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 8px 0; text-align: center; overflow-x: auto; }
+
+/* 彈出視窗 */
+.modal-bg { position: fixed; inset: 0; background: rgba(5, 8, 14, 0.72); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+.modal-bg.show { display: flex; }
+.modal { background: var(--panel-solid); border: 1px solid var(--line-strong); border-radius: 18px; width: min(860px, 100%); max-height: calc(100vh - 32px); overflow: auto; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); }
+.modal-head { position: sticky; top: 0; background: var(--panel-solid); display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 22px; border-bottom: 1px solid var(--line); z-index: 2; flex-wrap: wrap; }
+.modal-head h2 { margin: 0; font-size: 22px; }
+.modal-body { padding: 18px 22px 26px; }
+.modal-body h3 { color: var(--accent); margin: 22px 0 6px; font-size: 18px; }
+.modal-body table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0; }
+.modal-body th, .modal-body td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.modal-body th { color: var(--muted); font-weight: 600; }
+.icon-btn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line-strong); background: transparent; color: var(--text); font-size: 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+
+/* 頂欄 */
+.topbar { height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid var(--line); background: rgba(12, 17, 26, 0.95); position: relative; z-index: 20; }
+.topbar .brand { font-weight: 900; font-size: 18px; text-decoration: none; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.topbar .brand b { color: var(--accent); }
+.topbar .spacer { flex: 1; }
+
+/* 3D 畫面上的向量標籤 */
+.vlabel { position: absolute; pointer-events: none; font-weight: 800; font-size: 14px; padding: 1px 7px; border-radius: 6px; background: rgba(8, 12, 20, 0.75); white-space: nowrap; transform: translate(-50%, -50%); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; background: currentColor; }
+
+.toast-wrap { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; z-index: 30; width: max-content; max-width: calc(100% - 32px); }
+.toast { background: rgba(10, 14, 22, 0.88); border: 1px solid var(--line-strong); border-radius: 10px; padding: 6px 14px; font-size: 14px; animation: toastIn .25s ease-out; text-align: center; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+</style>
+<style>
+  html, body { overflow: hidden; }
+  .game { position: relative; display: grid; grid-template-columns: 330px 1fr 330px; height: calc(100vh - 56px); height: calc(100dvh - 56px); }
+  .arena { position: relative; overflow: hidden; background: radial-gradient(1000px 700px at 50% 20%, #26354b, #0d131d 70%); }
+  .arena canvas { display: block; width: 100%; height: 100%; }
+  .ppanel { overflow-y: auto; padding: 12px 14px 90px; background: #0f1520; position: relative; }
+  .ppanel.p1 { border-right: 1px solid var(--line); }
+  .ppanel.p2 { border-left: 1px solid var(--line); }
+  .phead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .phead .pname { font-weight: 900; font-size: 18px; }
+  .p1 .pname { color: var(--p1); } .p2 .pname { color: var(--p2); }
+  .badge { font-size: 12px; border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px 10px; color: var(--muted); }
+  .sec-title { font-size: 13px; color: var(--muted); font-weight: 700; margin: 12px 0 6px; }
+  .shapes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .shape { border: 1px solid var(--line-strong); background: #121a27; border-radius: 10px; padding: 6px 2px 4px; cursor: pointer; text-align: center; color: var(--text); font-size: 12px; font-weight: 700; }
+  .shape svg { width: 40px; height: 40px; display: block; margin: 0 auto 2px; }
+  .shape.on { border-color: var(--accent); background: rgba(245, 184, 46, 0.1); }
+  .shape small { display: block; color: var(--muted); font-weight: 500; font-size: 11px; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 2.6em; }
+  .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+  .sw.on { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
+  .ebar { background: #0b1019; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin: 8px 0; }
+  .ebar .bar { height: 8px; border-radius: 4px; background: #222c3c; overflow: hidden; margin: 6px 0 4px; }
+  .ebar .fill { height: 100%; background: linear-gradient(90deg, #34d399, #fbbf24, #f97316); border-radius: 4px; }
+  .ebar .row2 { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .dialrow { display: flex; gap: 10px; align-items: center; }
+  .dialrow canvas { width: 104px; height: 104px; cursor: pointer; flex: none; touch-action: none; }
+  .phys { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 12px; margin-top: 6px; }
+  .phys div { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--line); padding: 2px 0; }
+  .phys b { font-family: var(--mono); font-weight: 600; }
+  details.physd summary { cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 700; margin-top: 10px; }
+  .cpu-cover { position: absolute; inset: 52px 0 0 0; background: rgba(12, 17, 26, 0.75); display: flex; align-items: flex-start; justify-content: center; padding-top: 120px; font-weight: 800; font-size: 16px; z-index: 3; text-align: center; }
+  /* 戰鬥中的即時面板 */
+  .live { display: none; }
+  .battling .setup { display: none; }
+  .battling .live { display: block; }
+  .live .rpm { font-family: var(--mono); font-size: 34px; font-weight: 800; line-height: 1.1; }
+  .live .rpm small { font-size: 14px; color: var(--muted); }
+  .meter { margin: 10px 0; }
+  .meter .bar { height: 10px; border-radius: 5px; background: #222c3c; overflow: hidden; margin-top: 4px; position: relative; }
+  .meter .fill { height: 100%; border-radius: 5px; transition: width .1s; }
+  .meter .mk { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #fff; }
+  .meter .lab { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .hitinfo { font-size: 13px; background: #121a27; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-height: 64px; }
+  .cfgline { font-size: 12px; color: var(--muted); margin: 4px 0 8px; }
+  /* 中央資訊 */
+  .scoreboard { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6; background: rgba(13, 19, 29, 0.88); border: 1px solid var(--line-strong); border-radius: 12px; padding: 6px 16px; text-align: center; min-width: 190px; }
+  .scoreboard .rule { font-size: 12px; color: var(--muted); }
+  .scoreboard .sc { font-family: var(--mono); font-weight: 800; font-size: 20px; }
+  .scoreboard .sc .a { color: var(--p1); } .scoreboard .sc .b { color: var(--p2); }
+  .scoreboard .tm { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .bottombar { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; gap: 8px; align-items: center; background: rgba(13, 19, 29, 0.9); border: 1px solid var(--line-strong); border-radius: 14px; padding: 8px 10px; white-space: nowrap; }
+  .bottombar .hint { font-size: 13px; color: var(--muted); padding: 0 6px; }
+  .bigtext { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); font-weight: 900; font-size: clamp(40px, 9vw, 110px); color: #fff; text-shadow: 0 6px 30px rgba(0, 0, 0, .6), 0 0 2px #000; pointer-events: none; z-index: 8; white-space: nowrap; }
+  .bigtext.pop { animation: pop .7s ease-out forwards; }
+  .bigtext.impact { color: #ffcf3f; -webkit-text-stroke: 2px #b4230b; font-style: italic; }
+  @keyframes pop { 0% { transform: translate(-50%, -50%) scale(.4); opacity: 0; } 25% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
+  .danger { position: absolute; top: 60px; font-weight: 900; color: #ff5d5d; font-size: 20px; text-shadow: 0 2px 10px #000; z-index: 6; animation: blink .4s infinite alternate; display: none; }
+  .danger.d0 { left: 16px; } .danger.d1 { right: 16px; }
+  @keyframes blink { to { opacity: .35; } }
+  .overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; z-index: 20; background: rgba(6, 9, 15, 0.55); padding: 16px; }
+  .overlay.show { display: flex; }
+  .result { background: var(--panel-solid); border: 1px solid var(--line-strong); border-radius: 18px; padding: 20px 22px; width: min(560px, 100%); max-height: 100%; overflow: auto; box-shadow: 0 24px 70px rgba(0, 0, 0, .5); }
+  .result h2 { margin: 0 0 4px; font-size: 28px; text-align: center; }
+  .result .sub { text-align: center; color: var(--muted); margin-bottom: 12px; }
+  .why { background: rgba(76, 201, 240, 0.08); border: 1px solid rgba(76, 201, 240, 0.3); border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+  .why b { color: var(--vec-L); }
+  .cmp { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0; }
+  .cmp th, .cmp td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+  .cmp th:first-child, .cmp td:first-child { text-align: left; color: var(--muted); }
+  .result .actions { display: flex; gap: 8px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+  .confetti { position: absolute; top: -20px; width: 9px; height: 14px; z-index: 25; pointer-events: none; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+  /* 開始畫面 */
+  .start-card { width: min(920px, 100%); }
+  .start-title { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .start-title h1 { margin: 0; font-size: clamp(36px, 6vw, 58px); font-weight: 900; }
+  .start-title h1 b { color: var(--accent); }
+  .start-title span { color: var(--muted); }
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .mode { text-align: left; border: 1px solid var(--line-strong); background: #111824; border-radius: 14px; padding: 14px 16px; cursor: pointer; color: var(--text); }
+  .mode b { display: block; font-size: 18px; margin-bottom: 4px; }
+  .mode span { color: var(--muted); font-size: 14px; }
+  .mode.on { border-color: var(--accent); background: rgba(245, 184, 46, 0.08); }
+  .names { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .names input, .nm input { width: 100%; background: #0b1019; border: 1px solid var(--line-strong); color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 16px; font-family: inherit; }
+  .nm { display: flex; align-items: center; gap: 6px; }
+  .nm input { width: 64px; text-align: center; padding: 8px; }
+  .sform .label { margin: 16px 0 6px; display: block; }
+  .theory-body .lv { display: none; }
+  .theory-body.kid .lv.kid, .theory-body.adv .lv.adv { display: block; }
+  .theory-body .kid-box { font-size: 16px; }
+  .theory-body .kid-box li { margin: 8px 0; }
+  @media (max-width: 1000px) {
+    html, body { overflow: auto; }
+    .game { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; height: auto; }
+    .arena { grid-column: 1 / -1; grid-row: 1; height: 60vh; height: 60svh; min-height: 360px; }
+    .ppanel.p1 { grid-row: 2; grid-column: 1; border-right: 1px solid var(--line); }
+    .ppanel.p2 { grid-row: 2; grid-column: 2; }
+    .ppanel { padding-bottom: 30px; }
+    .bottombar .hint { display: none; }
+  }
+  @media (max-width: 640px) {
+    .game { grid-template-columns: 1fr; }
+    .ppanel.p1, .ppanel.p2 { grid-column: 1; border: 0; border-top: 1px solid var(--line); }
+    .ppanel.p2 { grid-row: 3; }
+    .modes, .names { grid-template-columns: 1fr; }
+    .scoreboard { min-width: 150px; padding: 4px 10px; }
+    .topbar .ttl { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">← 陀螺儀<b>實驗室</b></a>
+  <span class="ttl" style="font-weight:800">B・戰鬥陀螺對決</span>
+  <div class="spacer"></div>
+  <button class="btn small ghost" id="soundBtn">音效：開</button>
+  <button class="btn small" id="theoryTop">遊戲原理</button>
+</header>
+
+<main class="game" id="game">
+  <aside class="ppanel p1" id="panel0"></aside>
+  <section class="arena" id="arena">
+    <canvas id="c"></canvas>
+    <div class="scoreboard" id="scoreboard"><div class="rule" id="sbRule">3 戰 2 勝・第 1 回合</div><div class="sc"><span class="a" id="sbA">0</span> : <span class="b" id="sbB">0</span></div><div class="tm" id="sbTime"></div></div>
+    <div class="danger d0" id="danger0">危險！</div>
+    <div class="danger d1" id="danger1">危險！</div>
+    <div class="toast-wrap" id="toasts" style="top:78px"></div>
+    <div class="bottombar" id="bottombar">
+      <span class="hint" id="barHint">設定好陀螺，按下發射</span>
+      <button class="btn small" id="btnHome">主畫面</button>
+      <button class="btn small" id="btnTheory">原理</button>
+      <button class="btn small" id="btnSpeed" style="display:none">速度 1×</button>
+      <button class="btn primary" id="btnLaunch">3-2-1 發射！</button>
+    </div>
+    <div class="overlay" id="roundOv"><div class="result" id="roundBox"></div></div>
+  </section>
+  <aside class="ppanel p2" id="panel1"></aside>
+
+  <!-- 開始畫面 -->
+  <div class="overlay show" id="startOv" style="position:fixed;top:56px;z-index:40;background:rgba(6,9,15,0.82)">
+    <div class="result start-card sform">
+      <div class="start-title"><h1>陀螺<b>對決</b></h1><span>能量有上限：質量、轉速、質量分布怎麼取捨？</span></div>
+      <span class="label">對戰模式</span>
+      <div class="modes" id="modes">
+        <button class="mode on" data-mode="cpu"><b>挑戰電腦</b><span>電腦隨機選攻擊、防禦或持久型配置</span></button>
+        <button class="mode" data-mode="pvp"><b>本地雙人</b><span>同一台裝置輪流設定，一起發射</span></button>
+      </div>
+      <div class="names" style="margin-top:12px">
+        <div><span class="label" style="margin-top:0">玩家一名字</span><input id="name0" placeholder="玩家一" maxlength="10"></div>
+        <div><span class="label" style="margin-top:0" id="name1lab">對手名字</span><input id="name1" placeholder="電腦" maxlength="10"></div>
+      </div>
+      <span class="label">賽制（N 戰 M 勝）</span>
+      <div class="row" style="gap:8px">
+        <div class="chip-row" id="series">
+          <button class="chip on" data-n="3" data-m="2">3 戰 2 勝</button>
+          <button class="chip" data-n="5" data-m="3">5 戰 3 勝</button>
+          <button class="chip" data-n="7" data-m="4">7 戰 4 勝</button>
+        </div>
+        <span class="nm"><input id="sN" type="number" min="1" max="15" value="3"> 戰 <input id="sM" type="number" min="1" max="15" value="2"> 勝</span>
+      </div>
+      <small class="label" style="display:block;margin-top:6px;font-weight:500">先拿到 M 勝的人贏得比賽；N 回合打完還沒有人到 M 勝，勝場多的人贏，同分就加賽。</small>
+      <div class="actions" style="justify-content:flex-end;margin-top:22px">
+        <button class="btn" id="startTheory">遊戲原理</button>
+        <button class="btn primary" id="startGo">開始比賽</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- 原理視窗 -->
+<div class="modal-bg" id="theoryModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>遊戲原理</h2>
+      <div class="row">
+        <div class="seg" id="lvSeg"><button data-v="kid" class="on">國中小版</button><button data-v="adv">進階版</button></div>
+        <button class="icon-btn" id="theoryClose" aria-label="關閉">✕</button>
+      </div>
+    </div>
+    <div class="modal-body theory-body kid" id="theoryBody"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* 簡易環繞相機：拖曳旋轉、滾輪／雙指縮放（不需額外函式庫） */
+(function (root) {
+  'use strict';
+  class Orbit {
+    constructor(camera, dom, opts) {
+      opts = opts || {};
+      this.camera = camera; this.dom = dom;
+      this.target = opts.target || new THREE.Vector3(0, 0, 0);
+      this.dist = opts.dist || 5; this.yaw = opts.yaw || 0.6; this.pitch = opts.pitch || 0.5;
+      this.minDist = opts.minDist || 1; this.maxDist = opts.maxDist || 30;
+      this.minPitch = opts.minPitch != null ? opts.minPitch : 0.05; this.maxPitch = opts.maxPitch || 1.5;
+      this.home = { dist: this.dist, yaw: this.yaw, pitch: this.pitch };
+      this.pointers = new Map();
+      dom.style.touchAction = 'none';
+      dom.addEventListener('pointerdown', e => { if (this.enabled === false) return; dom.setPointerCapture(e.pointerId); this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
+      dom.addEventListener('pointermove', e => {
+        if (this.enabled === false || !this.pointers.has(e.pointerId)) return;
+        const p = this.pointers.get(e.pointerId);
+        if (this.pointers.size === 1) {
+          this.yaw -= (e.clientX - p.x) * 0.008;
+          this.pitch = Math.max(this.minPitch, Math.min(this.maxPitch, this.pitch + (e.clientY - p.y) * 0.006));
+        } else if (this.pointers.size === 2) {
+          const pts = [...this.pointers.values()];
+          const d0 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          p.x = e.clientX; p.y = e.clientY;
+          const pts2 = [...this.pointers.values()];
+          const d1 = Math.hypot(pts2[0].x - pts2[1].x, pts2[0].y - pts2[1].y);
+          if (d0 > 0) this.zoom(d0 / d1);
+        }
+        p.x = e.clientX; p.y = e.clientY;
+        this.update();
+      });
+      const up = e => this.pointers.delete(e.pointerId);
+      dom.addEventListener('pointerup', up); dom.addEventListener('pointercancel', up);
+      dom.addEventListener('wheel', e => { if (this.enabled === false) return; e.preventDefault(); this.zoom(Math.exp(e.deltaY * 0.001)); this.update(); }, { passive: false });
+      this.update();
+    }
+    zoom(f) { this.dist = Math.max(this.minDist, Math.min(this.maxDist, this.dist * f)); }
+    reset() { Object.assign(this, this.home); this.update(); }
+    update() {
+      const c = Math.cos(this.pitch), t = this.target;
+      this.camera.position.set(t.x + this.dist * c * Math.sin(this.yaw), t.y + this.dist * Math.sin(this.pitch), t.z + this.dist * c * Math.cos(this.yaw));
+      this.camera.lookAt(t);
+    }
+  }
+  /* 讓 3D 物件旁邊顯示 HTML 標籤 */
+  function placeLabel(el, pos3, camera, w, h) {
+    const v = pos3.clone().project(camera);
+    if (v.z > 1) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.style.left = ((v.x + 1) / 2 * w) + 'px';
+    el.style.top = ((1 - v.y) / 2 * h) + 'px';
+  }
+  /* 滑桿進度條顏色 */
+  function paintRange(input) {
+    const pct = (input.value - input.min) / (input.max - input.min) * 100;
+    input.style.setProperty('--pct', pct + '%');
+  }
+  root.Orbit = Orbit; root.placeLabel = placeLabel; root.paintRange = paintRange;
+})(this);
+
+</script>
+<script>
+/* 戰鬥陀螺物理核心（不依賴畫面，可單獨測試）
+ * 水平面座標 (x, y)，z 向上；長度單位 m、質量 kg、時間 s
+ */
+(function (root) {
+  'use strict';
+  const g = 9.8;
+  const R_TOP = 0.025;   // 陀螺半徑
+  const E_MAX = 2.0;     // 轉動動能上限 (J)
+  const BOWL_C = 2.0;    // 場地剖面 z = C r²
+  const R_OUT = 0.24;    // 出界線
+  const R_LAUNCH = 0.14; // 發射點距中心
+  const C_AIR = 3e-7;    // 空氣阻力力矩係數 (N·m·s)
+  const MU_ROLL = 0.04;  // 地面滾動阻力
+  const MU_CONTACT = 0.35; // 碰撞時接觸面摩擦
+  const TILT_FALL = 0.65;  // 傾斜超過約 37° 判定倒下
+  const T_LIMIT = 60;      // 每回合最長時間
+  const H_WALL = 0.04;     // 出界邊牆高度
+  const V_ESC = Math.sqrt(2 * g * H_WALL); // ≈ 0.89 m/s
+
+  /* 外型：k 決定轉動慣量 I = k m r²（質量越往外圈越大）；α 刃角；e 恢復係數 */
+  const SHAPES = {
+    blade:  { name: '刃鋒', type: '攻擊型', k: 0.46, alpha: 1.0,  e: 0.70, blades: 3,
+              note: '質量集中在中間、刃角大：撞擊時把自轉轉換成推力，但自己也耗轉速。' },
+    star:   { name: '星芒', type: '平衡型', k: 0.55, alpha: 0.6,  e: 0.62, blades: 5,
+              note: '介於攻擊與持久之間，什麼都不突出也不吃虧。' },
+    shield: { name: '盾環', type: '防禦型', k: 0.60, alpha: 0.2,  e: 0.45, blades: 0,
+              note: '圓滑外緣、恢復係數低：撞擊能量被吸收，不容易被彈飛。' },
+    wheel:  { name: '飛輪', type: '持久型', k: 0.75, alpha: 0.15, e: 0.55, blades: 8,
+              note: '質量集中在外圈（像圓環），同樣能量下轉速較低，但轉得最久。' }
+  };
+  /* 尖端：摩擦力矩 τ = μ m g r_tip；grip 決定在場地上跑動的程度 */
+  const TIPS = {
+    sharp: { name: '尖頭', mu: 0.22, rtip: 0.0008, grip: 0.15, drive: 0.0,
+             note: '接觸點最小 → 摩擦力矩小、最省轉速，幾乎停在中央不動。' },
+    ball:  { name: '球頭', mu: 0.25, rtip: 0.0015, grip: 0.5,  drive: 0.25,
+             note: '中庸：會慢慢繞場，轉速消耗中等。' },
+    flat:  { name: '平頭', mu: 0.30, rtip: 0.0025, grip: 1.0,  drive: 0.7,
+             note: '接觸面大 → 抓地力強、跑得快，但摩擦力矩大、轉速掉得快。' }
+  };
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const hyp = Math.hypot;
+
+  function derived(cfg) {
+    const S = SHAPES[cfg.shape], T = TIPS[cfg.tip];
+    const m = cfg.mass / 1000, h = cfg.h / 1000, r = R_TOP;
+    const I = S.k * m * r * r;
+    const Iperp = 0.5 * S.k * m * r * r + m * h * h;     // 繞尖端的橫向轉動慣量
+    const wMax = Math.sqrt(2 * E_MAX / I);
+    const w0 = Math.min(cfg.rpm * Math.PI / 30, wMax);
+    const wc = Math.sqrt(4 * m * g * h * Iperp) / I;      // 能「睡著」直立的臨界轉速
+    const tauTip = T.mu * m * g * T.rtip;
+    // 不受撞擊、不跑動時的持久時間（解析解）：I ω' = −τ − c ω，轉到 ω_c 為止
+    const a = tauTip / I, b = C_AIR / I;
+    const tLife = Math.log((a + b * w0) / (a + b * wc)) / b;
+    return { S, T, m, h, r, I, Iperp, wMax, wMaxRpm: wMax * 30 / Math.PI, w0, wc, wcRpm: wc * 30 / Math.PI,
+      E: 0.5 * I * w0 * w0, L: I * w0, tauTip, tLife,
+      precess: m * g * h / (I * Math.max(w0, 1)), KE: 0.5 * m * cfg.v * cfg.v };
+  }
+
+  function makeTop(cfg, side) {
+    const d = derived(cfg);
+    // 發射：玩家一在左 (−x)，玩家二在右 (+x)；θ=0 正對中心，+θ 為俯視順時針偏轉
+    const sx = side === 0 ? -1 : 1;
+    const px = sx * R_LAUNCH, py = 0;
+    const toC = Math.atan2(-py, -px);
+    const ang = toC - cfg.angle * Math.PI / 180;
+    const dir = (cfg.spin === 'L' || cfg.spin < 0) ? -1 : 1;
+    return {
+      cfg, d, side, m: d.m, I: d.I, h: d.h,
+      x: px, y: py, vx: Math.cos(ang) * cfg.v, vy: Math.sin(ang) * cfg.v,
+      w: dir * d.w0, tx: 0, ty: 0, // tilt：軸偏離鉛直的向量（rad），方向 = 軸頂端偏移方向
+      alive: true, out: false, fell: false, trail: [], wobble: 0, lastHit: null, hits: 0
+    };
+  }
+
+  /* 對陀螺在接觸點施加衝量 J（水平向量），接觸點相對中心 rv */
+  function applyImpulse(t, Jx, Jy, rx, ry) {
+    t.vx += Jx / t.m; t.vy += Jy / t.m;
+    t.w += (rx * Jy - ry * Jx) / t.I;
+    // 撞擊點高度約在重心 h：角衝量 ΔL = h ẑ × J → 軸偏轉 Δa = ΔL / (I ω)
+    // 注意方向是「垂直於推力」：這就是陀螺儀效應（進動）
+    const Lw = t.I * (Math.abs(t.w) < 30 ? Math.sign(t.w || 1) * 30 : t.w);
+    t.tx += t.h * (-Jy) / Lw;
+    t.ty += t.h * (Jx) / Lw;
+  }
+
+  function collide(a, b, events) {
+    const dx = b.x - a.x, dy = b.y - a.y, dist = hyp(dx, dy);
+    if (dist >= 2 * R_TOP || dist < 1e-9) { a.inContact = b.inContact = false; return; }
+    const fresh = !a.inContact; // 剛接觸才算一次撞擊（持續貼著互刮不重複計數）
+    a.inContact = b.inContact = true;
+    const nx = dx / dist, ny = dy / dist, tx = -ny, ty = nx; // n 由 a 指向 b；t = ẑ × n
+    const r = R_TOP;
+    // 接觸點相對速度（含自轉表面速度）：u = (va − vb) + (ωa + ωb) r t̂
+    const ux = a.vx - b.vx + (a.w + b.w) * r * tx;
+    const uy = a.vy - b.vy + (a.w + b.w) * r * ty;
+    const un = ux * nx + uy * ny, ut = ux * tx + uy * ty;
+    // 位置修正（避免重疊）
+    const pen = 2 * R_TOP - dist, wa = 1 / a.m, wb = 1 / b.m;
+    a.x -= nx * pen * wa / (wa + wb); a.y -= ny * pen * wa / (wa + wb);
+    b.x += nx * pen * wb / (wa + wb); b.y += ny * pen * wb / (wa + wb);
+    if (un <= 0) return;
+    // 刃角：有效法線往滑動方向偏 α
+    const al = (a.d.S.alpha + b.d.S.alpha) * Math.PI / 180, s = Math.sign(ut) || 1;
+    const qx = Math.cos(al) * nx + Math.sin(al) * s * tx, qy = Math.cos(al) * ny + Math.sin(al) * s * ty;
+    const uq = ux * qx + uy * qy;
+    if (uq <= 0) return;
+    const e = Math.min(a.d.S.e, b.d.S.e) * 0.5 + Math.max(a.d.S.e, b.d.S.e) * 0.5;
+    const rax = r * nx, ray = r * ny, rbx = -r * nx, rby = -r * ny;
+    const cqa = rax * qy - ray * qx, cqb = rbx * qy - rby * qx;
+    const K = wa + wb + cqa * cqa / a.I + cqb * cqb / b.I;
+    const J = (1 + e) * uq / K;
+    applyImpulse(a, -J * qx, -J * qy, rax, ray);
+    applyImpulse(b, J * qx, J * qy, rbx, rby);
+    // 庫倫摩擦（垂直 q 的方向），會改變兩者自轉
+    const px = -qy, py = qx;
+    const ux2 = a.vx - b.vx + (a.w + b.w) * r * tx, uy2 = a.vy - b.vy + (a.w + b.w) * r * ty;
+    const up = ux2 * px + uy2 * py;
+    const cpa = rax * py - ray * px, cpb = rbx * py - rby * px;
+    const Kt = wa + wb + cpa * cpa / a.I + cpb * cpb / b.I;
+    const Jt = clamp(up / Kt, -MU_CONTACT * J, MU_CONTACT * J);
+    const wa0 = a.w, wb0 = b.w;
+    applyImpulse(a, -Jt * px, -Jt * py, rax, ray);
+    applyImpulse(b, Jt * px, Jt * py, rbx, rby);
+    if (!fresh && J < 0.004) return;
+    a.hits++; b.hits++;
+    const ev = { type: 'hit', J, Jt, dvA: J / a.m, dvB: J / b.m,
+      dwA: a.w - wa0, dwB: b.w - wb0, sameSpin: Math.sign(a.w) === Math.sign(b.w), slide: Math.abs(ut) };
+    a.lastHit = ev; b.lastHit = ev;
+    events.push(ev);
+  }
+
+  function stepTop(t, dt, events) {
+    if (!t.alive) return;
+    const d = t.d, T = d.T;
+    const aw = Math.abs(t.w), sg = Math.sign(t.w) || 1;
+    // 1) 自轉衰減：I ω' = −(μ m g r_tip) − c ω
+    let dw = (d.tauTip + C_AIR * aw) / t.I * dt;
+    // 2) 平移：碗形場地回復力 + 滾動阻力 + 尖端帶動
+    const r = hyp(t.x, t.y), sp = hyp(t.vx, t.vy);
+    let ax = -2 * g * BOWL_C * t.x, ay = -2 * g * BOWL_C * t.y;
+    if (sp > 1e-4) { ax -= MU_ROLL * g * t.vx / sp; ay -= MU_ROLL * g * t.vy / sp; }
+    const spinF = Math.tanh(aw / 150);
+    // 自轉與地面接觸產生側向力 → 路徑彎曲
+    const curve = 0.8 * T.grip * spinF * sg;
+    ax += -t.vy * curve; ay += t.vx * curve;
+    // 平頭／球頭：尖端「滾動」推著陀螺沿場地繞圈（能量來自自轉）
+    if (T.drive > 0 && r > 0.01) {
+      const ex = -t.y / r * sg, ey = t.x / r * sg;
+      const dr = T.drive * spinF;
+      ax += ex * dr; ay += ey * dr;
+      const P = t.m * dr * Math.max(0, ex * t.vx + ey * t.vy); // 推進功率
+      dw += P / (t.I * Math.max(aw, 20)) * dt;
+    }
+    t.vx += ax * dt; t.vy += ay * dt;
+    t.x += t.vx * dt; t.y += t.vy * dt;
+    t.w = aw - dw <= 0 ? 0 : sg * (aw - dw);
+    // 3) 傾斜：重力力矩 m g h 讓軸以 Ω = m g h /(I ω) 進動；轉速夠快會慢慢回正
+    const tilt = hyp(t.tx, t.ty);
+    if (aw > 1) {
+      const Om = d.m * g * d.h / (t.I * aw) * sg;
+      const c = Math.cos(Om * dt), s = Math.sin(Om * dt);
+      const nx = t.tx * c - t.ty * s, ny = t.tx * s + t.ty * c; t.tx = nx; t.ty = ny;
+    }
+    if (aw > d.wc) {
+      const k = Math.exp(-dt / 1.2);
+      t.tx *= k; t.ty *= k;
+    } else {
+      const grow = 1 + (0.8 + 4 * (1 - aw / d.wc)) * dt;
+      if (tilt < 0.02) { t.tx += 0.02 * dt; }
+      t.tx *= grow; t.ty *= grow;
+    }
+    t.wobble = hyp(t.tx, t.ty);
+    // 4) 判定
+    const r2 = hyp(t.x, t.y);
+    if (r2 > R_OUT) {
+      // 邊牆高 H_WALL：徑向速度要大於 √(2 g H) 才翻得出去，否則撞牆反彈
+      const ux = t.x / r2, uy = t.y / r2, vr = t.vx * ux + t.vy * uy;
+      if (vr > V_ESC) { t.alive = false; t.out = true; events.push({ type: 'out', side: t.side, vr }); }
+      else {
+        t.x = ux * R_OUT; t.y = uy * R_OUT;
+        if (vr > 0) {
+          const J = (1 + 0.3) * t.m * vr;
+          applyImpulse(t, -J * ux, -J * uy, ux * R_TOP, uy * R_TOP);
+          t.w *= 0.985;
+          events.push({ type: 'wall', side: t.side, vr });
+        }
+      }
+    }
+    if (!t.alive) { /* 已出界 */ }
+    else if (t.wobble > TILT_FALL || aw < d.wc * 0.5) { t.alive = false; t.fell = true; events.push({ type: 'fall', side: t.side, byHit: t.wobble > TILT_FALL && aw > d.wc }); }
+  }
+
+  class Battle {
+    constructor(cfgA, cfgB) {
+      this.tops = [makeTop(cfgA, 0), makeTop(cfgB, 1)];
+      this.t = 0; this.over = false; this.result = null; this.events = []; this.log = [];
+    }
+    step(dt) {
+      if (this.over) return [];
+      const ev = [];
+      const [a, b] = this.tops;
+      stepTop(a, dt, ev); stepTop(b, dt, ev);
+      if (a.alive && b.alive) collide(a, b, ev);
+      this.t += dt;
+      const aliveA = a.alive, aliveB = b.alive;
+      if (!aliveA || !aliveB || this.t >= T_LIMIT) {
+        this.over = true;
+        let winner, method;
+        if (!aliveA && !aliveB) { winner = -1; method = '同時倒下'; }
+        else if (!aliveA || !aliveB) {
+          const loser = aliveA ? b : a; winner = aliveA ? 0 : 1;
+          method = loser.out ? '出界' : (ev.find(e => e.type === 'fall' && e.byHit) ? '被撞倒' : '轉速耗盡');
+        } else {
+          const La = Math.abs(a.I * a.w), Lb = Math.abs(b.I * b.w);
+          winner = La === Lb ? -1 : (La > Lb ? 0 : 1); method = '時間到（比角動量）';
+        }
+        this.result = { winner, method, time: this.t };
+      }
+      for (const e of ev) this.log.push(Object.assign({ t: this.t }, e));
+      return ev;
+    }
+  }
+
+  const api = { SHAPES, TIPS, derived, Battle, R_TOP, E_MAX, BOWL_C, R_OUT, R_LAUNCH, T_LIMIT, H_WALL, V_ESC, TILT_FALL, C_AIR, MU_ROLL, MU_CONTACT, g };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.BattlePhysics = api;
+})(this);
+
+</script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const BP = BattlePhysics;
+const { SHAPES, TIPS } = BP;
+const S = 10; // 1 m = 10 場景單位
+const COLORS = ['#ff4d4d', '#4c9dff', '#34d399', '#a78bfa', '#fb923c', '#22d3ee', '#f472b6', '#facc15'];
+const fmt = (v, d) => (isFinite(v) ? v.toFixed(d) : '–');
+
+/* ---------- 狀態 ---------- */
+const G = {
+  mode: 'cpu', names: ['玩家一', '電腦'], N: 3, M: 2,
+  cfg: [
+    { shape: 'blade', tip: 'ball', mass: 40, h: 14, rpm: 5000, spin: 1, v: 0.6, angle: 30, color: COLORS[0] },
+    { shape: 'wheel', tip: 'sharp', mass: 50, h: 12, rpm: 3800, spin: 1, v: 0.5, angle: 30, color: COLORS[1] }
+  ],
+  wins: [0, 0], round: 1, history: [], phase: 'setup', battle: null, speed: 1, sound: true
+};
+
+/* ---------- 外型小圖示（SVG） ---------- */
+function shapeSVG(key, color) {
+  const c = color || '#f5b82e';
+  const n = { blade: 3, star: 5, shield: 0, wheel: 8 }[key];
+  let blades = '';
+  for (let i = 0; i < n; i++) {
+    const a = i * 360 / n;
+    if (key === 'blade') blades += `<path transform="rotate(${a} 20 20)" d="M20 3 L30 10 L22 15 Z" fill="${c}"/>`;
+    else if (key === 'star') blades += `<path transform="rotate(${a} 20 20)" d="M17 8 L20 1 L23 8 Z" fill="${c}"/>`;
+    else blades += `<rect transform="rotate(${a} 20 20)" x="18.5" y="2.5" width="3" height="5" rx="1" fill="${c}"/>`;
+  }
+  const ring = key === 'shield' ? `<circle cx="20" cy="20" r="15" fill="none" stroke="${c}" stroke-width="5"/>` :
+    key === 'wheel' ? `<circle cx="20" cy="20" r="14" fill="none" stroke="${c}" stroke-width="4"/>` : '';
+  return `<svg viewBox="0 0 40 40">${blades}<circle cx="20" cy="20" r="12" fill="${c}" opacity=".85"/>${ring}<circle cx="20" cy="20" r="6" fill="#cbd5e1"/><circle cx="20" cy="20" r="2.5" fill="#0f172a"/></svg>`;
+}
+
+/* ---------- 設定面板 ---------- */
+function panelHTML(p) {
+  return `
+  <div class="phead"><span class="pname" id="pn${p}">玩家</span><span class="badge" id="pb${p}">設定中</span></div>
+  <div class="setup">
+    <div class="sec-title">外型（決定質量分布 k、刃角 α）</div>
+    <div class="shapes" id="shapes${p}">${Object.entries(SHAPES).map(([k, s]) => `<button class="shape" data-v="${k}">${shapeSVG(k)}${s.name}<small>${s.type}</small></button>`).join('')}</div>
+    <div class="note" id="shapeNote${p}"></div>
+    <div class="row" style="justify-content:space-between;margin-top:4px">
+      <div><div class="sec-title" style="margin-top:4px">旋轉方向（俯視）</div>
+        <div class="seg" id="spin${p}"><button data-v="1">逆時針 L↑</button><button data-v="-1">順時針 L↓</button></div></div>
+    </div>
+    <div class="sec-title">尖端（摩擦力矩 τ = μ m g r<sub>tip</sub>）</div>
+    <div class="seg" id="tip${p}">${Object.entries(TIPS).map(([k, t]) => `<button data-v="${k}">${t.name}</button>`).join('')}</div>
+    <div class="note" id="tipNote${p}"></div>
+    <div class="sec-title">顏色</div>
+    <div class="swatches" id="sw${p}">${COLORS.map(c => `<span class="sw" data-v="${c}" style="background:${c}"></span>`).join('')}</div>
+    <div class="field"><div class="field-head"><span class="label">質量 m</span><span class="val" id="vm${p}"></span></div>
+      <input type="range" id="m${p}" min="20" max="80" step="1"><small>越重：被撞時 Δv = J/m 越小，但同樣能量下轉速較低</small></div>
+    <div class="field"><div class="field-head"><span class="label">重心高度 h</span><span class="val" id="vh${p}"></span></div>
+      <input type="range" id="h${p}" min="8" max="25" step="1"><small>越低越穩：臨界轉速 ω<sub>c</sub> 越小、被撞後歪得越少</small></div>
+    <div class="field"><div class="field-head"><span class="label">轉速 n</span><span class="val" id="vr${p}"></span></div>
+      <input type="range" id="r${p}" min="1000" max="8000" step="50"><small id="rmax${p}"></small></div>
+    <div class="ebar"><div class="row2"><span>轉動動能 E = ½ I ω²</span><span id="ev${p}"></span></div><div class="bar"><div class="fill" id="ef${p}"></div></div><div class="row2"><span>I = k m r²（r = 25 mm）</span><span>上限 ${BP.E_MAX.toFixed(1)} J</span></div></div>
+    <div class="field"><div class="field-head"><span class="label">拋出速度 v</span><span class="val" id="vv${p}"></span></div>
+      <input type="range" id="v${p}" min="0.2" max="1.2" step="0.05"><small>太快會自己衝出場（越牆需要 ${BP.V_ESC.toFixed(2)} m/s 的徑向速度）</small></div>
+    <div class="dialrow"><canvas id="dial${p}" width="208" height="208"></canvas>
+      <div style="flex:1"><div class="field" style="margin:0"><div class="field-head"><span class="label">拋出方向 θ</span><span class="val" id="va${p}"></span></div>
+      <input type="range" id="a${p}" min="-90" max="90" step="1"><small>0° 正對中心；可直接點圓盤</small></div></div></div>
+    <details class="physd" open><summary>物理數據</summary><div class="phys" id="phys${p}"></div></details>
+  </div>
+  <div class="live">
+    <div class="cfgline" id="lcfg${p}"></div>
+    <div class="rpm" id="lrpm${p}">0 <small>rpm</small></div>
+    <div class="meter"><div class="lab"><span>穩定度 ω / ω<sub>c</sub></span><span id="lstab${p}"></span></div><div class="bar"><div class="fill" id="lstabf${p}" style="background:#4cc9f0"></div><div class="mk" id="lstabm${p}"></div></div></div>
+    <div class="meter"><div class="lab"><span>傾斜角（超過 37° 倒下）</span><span id="ltilt${p}"></span></div><div class="bar"><div class="fill" id="ltiltf${p}" style="background:#ff5d73"></div></div></div>
+    <div class="meter"><div class="lab"><span>距離出界線</span><span id="lpos${p}"></span></div><div class="bar"><div class="fill" id="lposf${p}" style="background:#f5b82e"></div></div></div>
+    <div class="stats" style="margin:10px 0">
+      <div class="stat"><div class="k">角動量 L</div><div class="v" id="lL${p}">–</div></div>
+      <div class="stat"><div class="k">進動 Ω = mgh/(Iω)</div><div class="v" id="lOm${p}">–</div></div>
+      <div class="stat"><div class="k">平移速度</div><div class="v" id="lv${p}">–</div></div>
+      <div class="stat"><div class="k">撞擊次數</div><div class="v" id="lh${p}">0</div></div>
+    </div>
+    <div class="sec-title">最近一次撞擊</div>
+    <div class="hitinfo" id="lhit${p}">還沒撞到</div>
+  </div>`;
+}
+for (const p of [0, 1]) $('#panel' + p).innerHTML = panelHTML(p);
+
+function paintPanel(p) {
+  const c = G.cfg[p], d = BP.derived(c);
+  if (c.rpm > d.wMaxRpm) { c.rpm = Math.floor(d.wMaxRpm / 50) * 50; }
+  const dd = BP.derived(c);
+  $$(`#shapes${p} .shape`).forEach(b => { b.classList.toggle('on', b.dataset.v === c.shape); b.querySelector('svg').outerHTML; });
+  $$(`#shapes${p} .shape`).forEach(b => { const svg = b.querySelector('svg'); svg.outerHTML = shapeSVG(b.dataset.v, b.dataset.v === c.shape ? c.color : '#64748b'); });
+  $(`#shapeNote${p}`).textContent = `k = ${SHAPES[c.shape].k}・α = ${SHAPES[c.shape].alpha}°・e = ${SHAPES[c.shape].e}。${SHAPES[c.shape].note}`;
+  $$(`#spin${p} button`).forEach(b => b.classList.toggle('on', +b.dataset.v === c.spin));
+  $$(`#tip${p} button`).forEach(b => b.classList.toggle('on', b.dataset.v === c.tip));
+  $(`#tipNote${p}`).textContent = `μ = ${TIPS[c.tip].mu}・r_tip = ${(TIPS[c.tip].rtip * 1000).toFixed(1)} mm。${TIPS[c.tip].note}`;
+  $$(`#sw${p} .sw`).forEach(s => s.classList.toggle('on', s.dataset.v === c.color));
+  const set = (id, v) => { const el = $('#' + id); el.value = v; paintRange(el); };
+  set('m' + p, c.mass); set('h' + p, c.h); set('r' + p, c.rpm); set('v' + p, c.v); set('a' + p, c.angle);
+  $('#vm' + p).textContent = c.mass + ' g'; $('#vh' + p).textContent = c.h + ' mm';
+  $('#vr' + p).textContent = c.rpm + ' rpm'; $('#vv' + p).textContent = c.v.toFixed(2) + ' m/s'; $('#va' + p).textContent = c.angle + '°';
+  $('#rmax' + p).textContent = `此質量與外型下最高 ${Math.floor(dd.wMaxRpm)} rpm（能量用完）`;
+  $('#ev' + p).textContent = `${dd.E.toFixed(2)} / ${BP.E_MAX.toFixed(2)} J`;
+  $('#ef' + p).style.width = (dd.E / BP.E_MAX * 100) + '%';
+  $('#phys' + p).innerHTML = [
+    ['I', (dd.I * 1e7).toFixed(1) + '×10⁻⁷ kg·m²'], ['ω₀', dd.w0.toFixed(0) + ' rad/s'],
+    ['L = Iω', (dd.L * 1e3).toFixed(2) + '×10⁻³'], ['ω_c 臨界', dd.wc.toFixed(0) + ' rad/s'],
+    ['摩擦力矩', (dd.tauTip * 1e6).toFixed(0) + ' μN·m'], ['預估持久', dd.tLife.toFixed(1) + ' s'],
+    ['進動 Ω', dd.precess.toFixed(2) + ' rad/s'], ['平動能', (dd.KE * 1000).toFixed(1) + ' mJ']
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+  drawDial(p);
+  if (G.phase === 'setup') arena.preview();
+}
+function bindPanel(p) {
+  const c = G.cfg[p];
+  const seg = (id, key, num) => $('#' + id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; c[key] = num ? +b.dataset.v : b.dataset.v; paintPanel(p); });
+  seg('spin' + p, 'spin', true); seg('tip' + p, 'tip', false);
+  $('#shapes' + p).addEventListener('click', e => { const b = e.target.closest('.shape'); if (!b) return; c.shape = b.dataset.v; paintPanel(p); });
+  $('#sw' + p).addEventListener('click', e => { const s = e.target.closest('.sw'); if (!s) return; c.color = s.dataset.v; paintPanel(p); });
+  const rng = (id, key, f) => $('#' + id + p).addEventListener('input', e => { c[key] = f(e.target.value); paintPanel(p); });
+  rng('m', 'mass', Number); rng('h', 'h', Number); rng('v', 'v', Number); rng('a', 'angle', Number);
+  $('#r' + p).addEventListener('input', e => { c.rpm = +e.target.value; paintPanel(p); });
+  const dial = $('#dial' + p);
+  const pick = e => {
+    const r = dial.getBoundingClientRect(), x = e.clientX - r.left - r.width / 2, y = e.clientY - r.top - r.height / 2;
+    // 圓盤上：發射點在左（玩家一）或右（玩家二），中心方向為 0°，順時針為正
+    const toC = p === 0 ? 0 : Math.PI;
+    let a = Math.atan2(y, x) - toC; // 螢幕 y 向下，所以 atan2 本身就是順時針為正
+    a = Math.atan2(Math.sin(a), Math.cos(a)) * 180 / Math.PI;
+    c.angle = Math.round(Math.max(-90, Math.min(90, a))); paintPanel(p);
+  };
+  let down = false;
+  dial.addEventListener('pointerdown', e => { down = true; dial.setPointerCapture(e.pointerId); pick(e); });
+  dial.addEventListener('pointermove', e => { if (down) pick(e); });
+  dial.addEventListener('pointerup', () => { down = false; });
+}
+function drawDial(p) {
+  const cv = $('#dial' + p), x = cv.getContext('2d'), W = cv.width, c = G.cfg[p];
+  x.clearRect(0, 0, W, W);
+  const cx = W / 2, R = W / 2 - 8;
+  x.fillStyle = '#0b1019'; x.beginPath(); x.arc(cx, cx, R, 0, 7); x.fill();
+  x.strokeStyle = '#ff5d5d'; x.lineWidth = 3; x.beginPath(); x.arc(cx, cx, R - 6, 0, 7); x.stroke();
+  x.fillStyle = '#1e3a5f'; x.beginPath(); x.arc(cx, cx, R * 0.32, 0, 7); x.fill();
+  const lx = cx + (p === 0 ? -1 : 1) * R * 0.58;
+  x.fillStyle = c.color; x.beginPath(); x.arc(lx, cx, 10, 0, 7); x.fill();
+  const toC = p === 0 ? 0 : Math.PI, a = toC + c.angle * Math.PI / 180, L = 26 + c.v * 34;
+  x.strokeStyle = '#f5b82e'; x.lineWidth = 5; x.lineCap = 'round';
+  x.beginPath(); x.moveTo(lx, cx); x.lineTo(lx + Math.cos(a) * L, cx + Math.sin(a) * L); x.stroke();
+  x.fillStyle = '#f5b82e'; x.beginPath();
+  const tx = lx + Math.cos(a) * (L + 8), ty = cx + Math.sin(a) * (L + 8);
+  x.moveTo(tx, ty); x.lineTo(tx - Math.cos(a - 0.5) * 14, ty - Math.sin(a - 0.5) * 14); x.lineTo(tx - Math.cos(a + 0.5) * 14, ty - Math.sin(a + 0.5) * 14); x.fill();
+}
+
+/* ---------- 音效 ---------- */
+const audio = (() => {
+  let ctx = null;
+  const ensure = () => { if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ctx = null; } } return ctx; };
+  function hit(strength) {
+    if (!G.sound || !ensure()) return;
+    const t = ctx.currentTime, dur = 0.12 + strength * 0.2;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800 + strength * 2500;
+    const gn = ctx.createGain(); gn.gain.value = Math.min(0.9, 0.25 + strength);
+    src.connect(f).connect(gn).connect(ctx.destination); src.start(t);
+  }
+  function beep(freq, len) {
+    if (!G.sound || !ensure()) return;
+    const t = ctx.currentTime, o = ctx.createOscillator(), gn = ctx.createGain();
+    o.frequency.value = freq; o.type = 'square'; gn.gain.setValueAtTime(0.12, t); gn.gain.exponentialRampToValueAtTime(0.001, t + len);
+    o.connect(gn).connect(ctx.destination); o.start(t); o.stop(t + len);
+  }
+  return { hit, beep, ensure };
+})();
+
+/* ---------- 3D 競技場 ---------- */
+const arena = (() => {
+  const box = $('#arena'), canvas = $('#c');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 200);
+  scene.add(new THREE.HemisphereLight(0xe8f0ff, 0x30394a, 0.95));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(3, 9, 4); scene.add(dl);
+  const M = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.55, metalness: 0.1 }, o || {}));
+  // 地面格線
+  const grid = new THREE.PolarGridHelper(14, 24, 10, 64, 0x3b4a62, 0x2a364a); grid.position.y = -0.31; scene.add(grid);
+  // 碗形場地：z = C r²
+  const C = BP.BOWL_C, RO = BP.R_OUT * S, wallH = BP.H_WALL * S;
+  const yAt = rw => C * rw * rw / S;
+  const prof = [];
+  for (let i = 0; i <= 40; i++) { const r = RO * i / 40; prof.push(new THREE.Vector2(Math.max(r, 0.001), yAt(r))); }
+  prof.push(new THREE.Vector2(RO + 0.04, yAt(RO) + wallH), new THREE.Vector2(RO + 0.3, yAt(RO) + wallH));
+  const bowl = new THREE.Mesh(new THREE.LatheGeometry(prof, 96), M(0xdfe5ee, { side: THREE.DoubleSide, roughness: 0.35 }));
+  scene.add(bowl);
+  const topY = yAt(RO) + wallH;
+  const shell = new THREE.Mesh(new THREE.CylinderGeometry(RO + 0.75, RO + 0.85, topY + 0.3, 8, 1, true), M(0xcfd6e0, { side: THREE.DoubleSide }));
+  shell.position.y = (topY - 0.3) / 2; shell.rotation.y = Math.PI / 8; scene.add(shell);
+  const lip = new THREE.Mesh(new THREE.RingGeometry(RO + 0.3, RO + 0.78, 8, 1), M(0xe9edf3, { side: THREE.DoubleSide }));
+  lip.rotation.x = -Math.PI / 2; lip.rotation.z = Math.PI / 8; lip.position.y = topY; scene.add(lip);
+  // 出界紅線與中央標記
+  const redLine = new THREE.Mesh(new THREE.TorusGeometry(RO, 0.018, 8, 120), M(0xff4d4d, { emissive: 0xff2d2d, emissiveIntensity: 0.6 }));
+  redLine.rotation.x = Math.PI / 2; redLine.position.y = yAt(RO) + 0.01; scene.add(redLine);
+  for (const r of [0.5, 1.0]) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.008, 6, 90), M(0x8aa0bb));
+    ring.rotation.x = Math.PI / 2; ring.position.y = yAt(r) + 0.005; scene.add(ring);
+  }
+  for (let i = 0; i < 4; i++) { // 四角的方塊裝飾
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22), M(i % 2 ? 0x9ec5ff : 0xffb3b3));
+    const a = Math.PI / 4 + i * Math.PI / 2; b.position.set(Math.cos(a) * (RO + 0.55), topY + 0.11, Math.sin(a) * (RO + 0.55)); scene.add(b);
+  }
+
+  /* 陀螺模型 */
+  function buildTop(cfg) {
+    const g = new THREE.Group(), tilt = new THREE.Group(), spin = new THREE.Group();
+    g.add(tilt); tilt.add(spin);
+    const col = new THREE.Color(cfg.color), hw = cfg.h / 1000 * S, rw = BP.R_TOP * S;
+    const metal = M(0xd5dbe3, { metalness: 0.85, roughness: 0.25 });
+    const tipH = Math.max(0.05, hw - 0.04);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(cfg.tip === 'flat' ? 0.06 : cfg.tip === 'ball' ? 0.045 : 0.03, tipH, 16), M(0x334155));
+    tip.rotation.x = Math.PI; tip.position.y = tipH / 2; spin.add(tip);
+    if (cfg.tip === 'ball') { const b = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 10), M(0x334155)); b.position.y = 0.02; spin.add(b); }
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(rw * 0.78, rw * 0.6, 0.08, 32), M(col, { metalness: 0.3 }));
+    body.position.y = hw; spin.add(body);
+    const sk = cfg.shape;
+    if (sk === 'shield' || sk === 'wheel') {
+      const tor = new THREE.Mesh(new THREE.TorusGeometry(rw * (sk === 'wheel' ? 0.88 : 0.86), sk === 'wheel' ? 0.045 : 0.06, 10, 40), metal);
+      tor.rotation.x = Math.PI / 2; tor.position.y = hw; spin.add(tor);
+    } else {
+      const tor = new THREE.Mesh(new THREE.TorusGeometry(rw * 0.72, 0.03, 8, 32), metal);
+      tor.rotation.x = Math.PI / 2; tor.position.y = hw + 0.02; spin.add(tor);
+    }
+    const nb = SHAPES[sk].blades;
+    for (let i = 0; i < nb; i++) {
+      const a = i * Math.PI * 2 / nb;
+      let m;
+      if (sk === 'blade') { m = new THREE.Mesh(new THREE.BoxGeometry(rw * 0.55, 0.06, 0.09), M(col.clone().offsetHSL(0, 0, 0.12), { metalness: 0.4 })); m.position.set(Math.cos(a) * rw * 0.78, hw, Math.sin(a) * rw * 0.78); m.rotation.y = -a - 0.5; }
+      else if (sk === 'star') { m = new THREE.Mesh(new THREE.ConeGeometry(0.06, rw * 0.5, 4), M(col.clone().offsetHSL(0, 0, 0.12))); m.rotation.z = -Math.PI / 2; const w = new THREE.Group(); w.add(m); m.position.x = rw * 0.85; w.rotation.y = -a; w.position.y = hw; spin.add(w); continue; }
+      else { m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, 0.05), metal); m.position.set(Math.cos(a) * rw * 0.95, hw, Math.sin(a) * rw * 0.95); m.rotation.y = -a; }
+      spin.add(m);
+    }
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(rw * 0.32, rw * 0.38, 0.06, 24), M(0xe2e8f0, { metalness: 0.6 }));
+    cap.position.y = hw + 0.06; spin.add(cap);
+    const mark = new THREE.Mesh(new THREE.BoxGeometry(rw * 0.5, 0.02, 0.05), M(0x0f172a)); mark.position.y = hw + 0.095; spin.add(mark);
+    // 角動量箭頭（透視顯示，朝下時也看得到）
+    const am = new THREE.MeshBasicMaterial({ color: 0x4cc9f0, depthTest: false, transparent: true, opacity: 0.9 });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1, 8), am); shaft.geometry.translate(0, 0.5, 0);
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 12), am);
+    const Larr = new THREE.Group(); Larr.add(shaft, head); Larr.renderOrder = 10; shaft.renderOrder = 10; head.renderOrder = 10;
+    tilt.add(Larr);
+    Larr.setLen = (len, dir) => { const y0 = dir > 0 ? hw + 0.1 : 0; Larr.position.y = y0; Larr.scale.y = dir; shaft.scale.y = Math.max(0.01, len - 0.12); head.position.y = len - 0.06; Larr.visible = len > 0.05; };
+    // 軌跡
+    const NT = 70, tp = new Float32Array(NT * 3), tg = new THREE.BufferGeometry();
+    tg.setAttribute('position', new THREE.BufferAttribute(tp, 3));
+    const trail = new THREE.Line(tg, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.75 }));
+    trail.frustumCulled = false;
+    return { g, tilt, spin, Larr, trail, tp, tg, n: 0, NT, hw, vis: 0 };
+  }
+  const tops = [null, null];
+  const launchArrows = [0, 1].map(() => {
+    const m = new THREE.MeshBasicMaterial({ color: 0xf5b82e });
+    const g = new THREE.Group();
+    const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 8), m); sh.geometry.translate(0, 0.5, 0); sh.rotation.z = -Math.PI / 2;
+    const hd = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.16, 12), m); hd.rotation.z = -Math.PI / 2;
+    g.add(sh, hd); g.userData = { sh, hd }; scene.add(g); return g;
+  });
+  function setTop(p, cfg) {
+    if (tops[p]) { scene.remove(tops[p].g); scene.remove(tops[p].trail); }
+    tops[p] = buildTop(cfg); scene.add(tops[p].g); scene.add(tops[p].trail);
+  }
+  const toW = (x, y) => new THREE.Vector3(x * S, yAt(Math.hypot(x, y) * S), -y * S);
+  function preview() {
+    for (const p of [0, 1]) {
+      const hide = G.mode === 'cpu' && p === 1;
+      setTop(p, G.cfg[p]);
+      const sx = p === 0 ? -1 : 1, x = sx * BP.R_LAUNCH, y = 0;
+      const pos = toW(x, y); tops[p].g.position.copy(pos); tops[p].g.visible = !hide;
+      const toC = Math.atan2(-y, -x), ang = toC - G.cfg[p].angle * Math.PI / 180;
+      const la = launchArrows[p]; la.visible = !hide;
+      la.position.copy(pos).add(new THREE.Vector3(0, 0.35, 0));
+      la.rotation.set(0, ang, 0); // 物理角度 ang（x→y 逆時針）= 繞場景 +y 旋轉 ang
+      const len = 0.4 + G.cfg[p].v * 1.1;
+      la.userData.sh.scale.y = len; la.userData.hd.position.x = len;
+      tops[p].trail.visible = false;
+    }
+  }
+  function startBattle() {
+    launchArrows.forEach(a => a.visible = false);
+    for (const p of [0, 1]) { setTop(p, G.cfg[p]); tops[p].trail.visible = true; tops[p].n = 0; }
+  }
+  // 火花
+  const sparks = [];
+  const sparkGeo = new THREE.SphereGeometry(0.02, 6, 4);
+  function burst(pos, strength) {
+    const n = Math.min(40, 8 + Math.round(strength * 120));
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color: i % 3 ? 0xffd166 : 0xffffff }));
+      m.position.copy(pos);
+      const a = Math.random() * Math.PI * 2, u = Math.random();
+      m.userData = { v: new THREE.Vector3(Math.cos(a) * (1 + u * 3), 1 + Math.random() * 2.5, Math.sin(a) * (1 + u * 3)), life: 0.45 + Math.random() * 0.3 };
+      scene.add(m); sparks.push(m);
+    }
+  }
+  let shake = 0;
+  function update(dt, battle) {
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const s = sparks[i]; s.userData.life -= dt; s.userData.v.y -= 9 * dt;
+      s.position.addScaledVector(s.userData.v, dt);
+      if (s.userData.life <= 0) { scene.remove(s); s.material.dispose(); sparks.splice(i, 1); }
+    }
+    if (battle) {
+      battle.tops.forEach((t, p) => {
+        const v = tops[p]; if (!v) return;
+        const pos = toW(t.x, t.y);
+        if (t.out) { v.g.position.y -= dt * 2; v.g.rotation.z += dt * 3; }
+        else v.g.position.copy(pos);
+        // 傾斜
+        const th = Math.min(1.4, Math.hypot(t.tx, t.ty) * (t.fell ? 2.2 : 1)), a = Math.atan2(t.ty, t.tx);
+        const up = new THREE.Vector3(Math.sin(th) * Math.cos(a), Math.cos(th), -Math.sin(th) * Math.sin(a));
+        v.tilt.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
+        // 自轉（畫面用放慢的角速度，方向正確）
+        v.vis += Math.sign(t.w) * Math.min(Math.abs(t.w) * 0.06, 28) * dt;
+        v.spin.rotation.y = v.vis;
+        const L = Math.abs(t.I * t.w);
+        v.Larr.setLen(Math.min(1.6, 0.2 + L / 6e-3 * 0.9), Math.sign(t.w) || 1);
+        // 軌跡
+        if (t.alive) {
+          if (v.n < v.NT) v.n++; else v.tp.copyWithin(0, 3);
+          const k = (v.n - 1) * 3; v.tp[k] = pos.x; v.tp[k + 1] = pos.y + 0.03; v.tp[k + 2] = pos.z;
+          v.tg.setDrawRange(0, v.n); v.tg.attributes.position.needsUpdate = true;
+        }
+      });
+    }
+    if (shake > 0) shake = Math.max(0, shake - dt * 2.5);
+    orbit.update();
+    if (shake > 0) camera.position.add(new THREE.Vector3((Math.random() - .5) * shake * 0.25, (Math.random() - .5) * shake * 0.25, 0));
+    renderer.render(scene, camera);
+  }
+  function resize() {
+    const w = box.clientWidth, h = box.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    // 直式螢幕把相機拉遠，整個場地才放得進畫面
+    if (orbit) { const f = Math.max(1, 1.35 / camera.aspect); orbit.home.dist = 7.4 * f; orbit.maxDist = 16 * f; if (!orbit.touched) orbit.dist = orbit.home.dist; }
+  }
+  let orbit = null;
+  orbit = new Orbit(camera, canvas, { target: new THREE.Vector3(0, 0.25, 0), dist: 7.4, yaw: 0, pitch: 0.78, minDist: 3, maxDist: 16 });
+  canvas.addEventListener('pointerdown', () => { orbit.touched = true; });
+  canvas.addEventListener('wheel', () => { orbit.touched = true; });
+  new ResizeObserver(resize).observe(box);
+  return { preview, startBattle, update, burst, toW, kick(s) { shake = Math.min(1, shake + s); }, resize };
+})();
+
+/* ---------- 介面輔助 ---------- */
+function toast(html, ms) { const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = html; $('#toasts').appendChild(t); setTimeout(() => t.remove(), ms || 2200); while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove(); }
+function bigText(txt, cls, ms) {
+  const el = document.createElement('div'); el.className = 'bigtext pop ' + (cls || ''); el.textContent = txt;
+  $('#arena').appendChild(el); setTimeout(() => el.remove(), ms || 800);
+}
+function updateScoreboard() {
+  $('#sbRule').textContent = `${G.N} 戰 ${G.M} 勝・第 ${G.round} 回合`;
+  $('#sbA').textContent = G.wins[0]; $('#sbB').textContent = G.wins[1];
+}
+function setNames() {
+  for (const p of [0, 1]) $('#pn' + p).textContent = G.names[p];
+}
+
+/* ---------- 電腦配置 ---------- */
+function cpuConfig() {
+  const presets = [
+    { shape: 'blade', tip: 'flat', mass: 30 + Math.round(Math.random() * 15), h: 14, v: 0.7, type: '攻擊型' },
+    { shape: 'shield', tip: 'ball', mass: 65 + Math.round(Math.random() * 15), h: 11, v: 0.45, type: '防禦型' },
+    { shape: 'wheel', tip: 'sharp', mass: 45 + Math.round(Math.random() * 15), h: 10, v: 0.35, type: '持久型' },
+    { shape: 'star', tip: 'ball', mass: 40 + Math.round(Math.random() * 15), h: 13, v: 0.55, type: '平衡型' }
+  ];
+  const pr = presets[Math.floor(Math.random() * presets.length)];
+  const c = Object.assign({}, G.cfg[1], pr, { spin: Math.random() < 0.8 ? 1 : -1, angle: Math.round(-50 + Math.random() * 100) });
+  c.rpm = Math.floor(BP.derived(Object.assign({}, c, { rpm: 99999 })).wMaxRpm * (0.9 + Math.random() * 0.1) / 50) * 50;
+  return c;
+}
+
+/* ---------- 回合流程 ---------- */
+let lastHitTime = -1, combo = 0;
+function launch() {
+  if (G.phase !== 'setup') return;
+  audio.ensure();
+  if (G.mode === 'cpu') { G.cfg[1] = cpuConfig(); paintPanel(1); toast(`電腦選擇：${SHAPES[G.cfg[1].shape].type}（${SHAPES[G.cfg[1].shape].name}・${TIPS[G.cfg[1].tip].name}・${G.cfg[1].mass} g）`, 3200); }
+  G.phase = 'countdown';
+  $('#cpuCover') && $('#cpuCover').remove();
+  $('#btnLaunch').disabled = true;
+  let n = 3;
+  const tick = () => {
+    if (n > 0) { bigText(String(n), '', 800); audio.beep(520, 0.12); n--; setTimeout(tick, 700); }
+    else { bigText('發射！', '', 800); audio.beep(880, 0.25); begin(); }
+  };
+  tick();
+}
+function begin() {
+  G.battle = new BP.Battle(G.cfg[0], G.cfg[1]);
+  G.phase = 'battle';
+  arena.startBattle();
+  $('#game').classList.add('battling');
+  for (const p of [0, 1]) {
+    const c = G.cfg[p];
+    $('#pb' + p).textContent = '戰鬥中';
+    $('#lcfg' + p).textContent = `${SHAPES[c.shape].name}（${SHAPES[c.shape].type}）・${TIPS[c.tip].name}・${c.mass} g・h ${c.h} mm・${c.spin > 0 ? '逆時針' : '順時針'}`;
+    $('#lhit' + p).textContent = '還沒撞到';
+  }
+  $('#btnLaunch').style.display = 'none'; $('#btnSpeed').style.display = '';
+  $('#barHint').textContent = '拖曳畫面可旋轉視角';
+  lastHitTime = -1; combo = 0;
+}
+function handleEvents(evs, bt) {
+  for (const e of evs) {
+    if (e.type === 'hit') {
+      const [a, b] = bt.tops;
+      const pos = arena.toW((a.x + b.x) / 2, (a.y + b.y) / 2);
+      const s = Math.min(1, e.J / 0.08);
+      arena.burst(pos, s); audio.hit(s);
+      if (bt.t - lastHitTime < 0.6) combo++; else combo = 1;
+      lastHitTime = bt.t;
+      if (e.J > 0.06) { bigText('強力撞擊！', 'impact', 900); arena.kick(0.8); }
+      else if (combo >= 3) toast(`${combo} 連擊！`);
+      for (const p of [0, 1]) {
+        const t = bt.tops[p], dv = p === 0 ? e.dvA : e.dvB, dw = p === 0 ? e.dwA : e.dwB;
+        $('#lhit' + p).innerHTML = `衝量 J = ${(e.J * 1000).toFixed(1)} mN·s<br>Δv = J/m = <b>${dv.toFixed(2)}</b> m/s<br>Δω = <b style="color:${dw * Math.sign(t.w) < 0 ? 'var(--vec-tau)' : 'var(--vec-omega)'}">${(dw * Math.sign(t.w || 1)) > 0 ? '+' : ''}${(dw * Math.sign(t.w || 1)).toFixed(0)}</b> rad/s（${e.sameSpin ? '同向旋轉：接觸面互刮，雙方都掉轉速' : '反向旋轉：接觸面同向，角動量從快的轉給慢的'}）`;
+      }
+    } else if (e.type === 'out') { bigText('出界！', '', 1000); audio.beep(200, 0.4); }
+    else if (e.type === 'fall') { bigText(e.byHit ? '撞倒！' : '停轉！', '', 1000); audio.beep(160, 0.4); }
+    else if (e.type === 'wall') { if (e.vr > 0.35) toast(`${G.names[e.side]} 撞牆反彈（徑向 ${e.vr.toFixed(2)} m/s < ${BP.V_ESC.toFixed(2)}）`); }
+  }
+}
+let liveT = 0;
+function updateLive(bt) {
+  for (const p of [0, 1]) {
+    const t = bt.tops[p], d = t.d;
+    const aw = Math.abs(t.w), rpm = aw * 30 / Math.PI;
+    $('#lrpm' + p).innerHTML = `${Math.round(rpm)} <small>rpm</small>`;
+    const ratio = aw / d.wc, maxR = d.w0 / d.wc;
+    $('#lstab' + p).textContent = ratio.toFixed(1) + '×';
+    $('#lstabf' + p).style.width = Math.min(100, ratio / maxR * 100) + '%';
+    $('#lstabf' + p).style.background = ratio < 2 ? '#ff5d73' : ratio < 4 ? '#fbbf24' : '#4cc9f0';
+    $('#lstabm' + p).style.left = Math.min(100, 1 / maxR * 100) + '%';
+    const tilt = t.wobble * 180 / Math.PI;
+    $('#ltilt' + p).textContent = tilt.toFixed(1) + '°';
+    $('#ltiltf' + p).style.width = Math.min(100, t.wobble / BP.TILT_FALL * 100) + '%';
+    const r = Math.hypot(t.x, t.y);
+    $('#lpos' + p).textContent = ((BP.R_OUT - r) * 100).toFixed(1) + ' cm';
+    $('#lposf' + p).style.width = Math.min(100, r / BP.R_OUT * 100) + '%';
+    $('#lL' + p).innerHTML = (t.I * aw * 1e3).toFixed(2) + '<small>×10⁻³</small>';
+    $('#lOm' + p).innerHTML = (aw > 1 ? (d.m * BP.g * d.h / (t.I * aw)).toFixed(2) : '–') + '<small>rad/s</small>';
+    $('#lv' + p).innerHTML = Math.hypot(t.vx, t.vy).toFixed(2) + '<small>m/s</small>';
+    $('#lh' + p).textContent = t.hits;
+    const vr = r > 0 ? (t.x * t.vx + t.y * t.vy) / r : 0;
+    $('#danger' + p).style.display = t.alive && r > 0.19 && vr > 0.2 ? 'block' : 'none';
+  }
+  $('#sbTime').textContent = `${bt.t.toFixed(1)} / ${BP.T_LIMIT} s`;
+}
+function whyText(res, bt) {
+  const W = res.winner, L = W === 0 ? 1 : 0;
+  if (W === -1) {
+    if (res.method === '同時倒下') return '兩顆陀螺同時出局。這種情況不算任何一方得分。';
+    return '兩顆陀螺剩下的角動量一樣，平手。';
+  }
+  const lt = bt.tops[L], wt = bt.tops[W], ld = lt.d;
+  const ln = G.names[L];
+  if (res.method === '出界') {
+    const ev = bt.log.filter(e => e.type === 'out').pop();
+    const hit = lt.lastHit;
+    return `${ln} 的徑向速度達到 <b>${ev ? ev.vr.toFixed(2) : '–'} m/s</b>，超過越過 ${BP.H_WALL * 100} cm 邊牆所需的 √(2gH) = ${BP.V_ESC.toFixed(2)} m/s。` +
+      (hit ? `最後一次撞擊給了它 Δv = J/m = ${(hit.J / lt.m).toFixed(2)} m/s，質量 ${lt.cfg.mass} g ${lt.cfg.mass < wt.cfg.mass ? '比對手輕，同樣的衝量被彈得更遠' : '雖然不輕，但撞擊衝量太大'}。` : '它是自己衝出去的：拋出速度太快，加上碗形場地把位能轉成動能。');
+  }
+  if (res.method === '被撞倒') {
+    return `撞擊點在重心高度 h = ${lt.cfg.h} mm，衝量 J 產生角衝量 J·h，讓轉軸偏轉 <b>Δθ ≈ J h / L</b>。${ln} 當時的角動量只剩 ${(Math.abs(lt.I * lt.w) * 1e3).toFixed(2)}×10⁻³，被撞歪超過 37° 就倒了。L 越大（重、快、質量在外圈）越不怕撞；重心越低也越不容易歪。`;
+  }
+  if (res.method === '轉速耗盡') {
+    return `${ln} 的轉速降到臨界轉速 <b>ω<sub>c</sub> = ${ld.wc.toFixed(0)} rad/s</b> 附近，陀螺儀效應撐不住重力力矩，開始越歪越大然後倒下。轉速是被尖端摩擦力矩 μmgr<sub>tip</sub>（${TIPS[lt.cfg.tip].name}）、空氣阻力，還有每次撞擊時的接觸面摩擦吃掉的。${SHAPES[wt.cfg.shape].k > SHAPES[lt.cfg.shape].k ? `贏家的質量分布 k = ${SHAPES[wt.cfg.shape].k} 比較大（質量在外圈），同樣能量下轉得較久。` : ''}`;
+  }
+  return `時間到，比較剩下的角動量 L = Iω：${G.names[W]} ${(Math.abs(wt.I * wt.w) * 1e3).toFixed(2)} 對 ${ln} ${(Math.abs(lt.I * lt.w) * 1e3).toFixed(2)}（×10⁻³ kg·m²/s）。`;
+}
+function endRound() {
+  const bt = G.battle, res = bt.result;
+  G.phase = 'roundEnd';
+  if (res.winner >= 0) G.wins[res.winner]++;
+  G.history.push({ round: G.round, winner: res.winner, method: res.method, time: res.time });
+  updateScoreboard();
+  const over = matchOver();
+  const [a, b] = bt.tops;
+  const row = (k, f) => `<tr><td>${k}</td><td>${f(a)}</td><td>${f(b)}</td></tr>`;
+  const title = res.winner === -1 ? '平手' : `${G.names[res.winner]} 贏得這回合`;
+  $('#roundBox').innerHTML = `
+    <h2 style="color:${res.winner === 0 ? 'var(--p1)' : res.winner === 1 ? 'var(--p2)' : 'var(--text)'}">${title}</h2>
+    <div class="sub">${res.method}・${res.time.toFixed(1)} 秒</div>
+    <div class="why"><b>為什麼？</b> ${whyText(res, bt)}</div>
+    <table class="cmp"><tr><th></th><th style="color:var(--p1)">${G.names[0]}</th><th style="color:var(--p2)">${G.names[1]}</th></tr>
+      ${row('外型／尖端', t => `${SHAPES[t.cfg.shape].name}／${TIPS[t.cfg.tip].name}`)}
+      ${row('轉動慣量 I', t => (t.I * 1e7).toFixed(0) + '×10⁻⁷')}
+      ${row('起始 → 結束轉速', t => `${Math.round(t.d.w0 * 30 / Math.PI)} → ${Math.round(Math.abs(t.w) * 30 / Math.PI)} rpm`)}
+      ${row('撞擊次數', t => t.hits)}
+      ${row('結果', t => t.out ? '出界' : t.fell ? '倒下' : '還在轉')}
+    </table>
+    <div class="actions">
+      <button class="btn" data-act="theory">遊戲原理</button>
+      <button class="btn primary" data-act="${over ? 'final' : 'next'}">${over ? '看比賽結果' : '下一回合 →'}</button>
+    </div>`;
+  $('#roundOv').classList.add('show');
+}
+function matchOver() {
+  const [a, b] = G.wins;
+  if (a >= G.M || b >= G.M) return true;
+  const played = G.history.length;
+  return played >= G.N && a !== b;
+}
+function showFinal() {
+  const [a, b] = G.wins, W = a > b ? 0 : 1;
+  const methodsTable = G.history.map(h => `<tr><td>${h.round}</td><td style="text-align:left;color:${h.winner === 0 ? 'var(--p1)' : h.winner === 1 ? 'var(--p2)' : 'var(--muted)'}">${h.winner >= 0 ? G.names[h.winner] : '平手'}</td><td style="text-align:left">${h.method}</td><td>${h.time.toFixed(1)} s</td></tr>`).join('');
+  $('#roundBox').innerHTML = `
+    <div class="sub" style="margin:0">比賽結束・${G.N} 戰 ${G.M} 勝</div>
+    <h2 style="font-size:34px;color:${W === 0 ? 'var(--p1)' : 'var(--p2)'}">${G.names[W]} 獲勝！</h2>
+    <div style="text-align:center;font-family:var(--mono);font-size:30px;font-weight:800"><span style="color:var(--p1)">${a}</span> : <span style="color:var(--p2)">${b}</span></div>
+    <table class="cmp"><tr><th>回合</th><th style="text-align:left">勝者</th><th style="text-align:left">方式</th><th>時間</th></tr>${methodsTable}</table>
+    <div class="why"><b>想一想：</b>這場比賽哪個因素最關鍵？質量（被撞的 Δv）、轉速與質量分布（角動量 L）、還是尖端（摩擦力矩）？換一種配置再打一場驗證看看。</div>
+    <div class="actions">
+      <button class="btn" data-act="theory">遊戲原理</button>
+      <button class="btn" data-act="home">回主畫面</button>
+      <button class="btn primary" data-act="again">再來一場</button>
+    </div>`;
+  confetti();
+}
+function confetti() {
+  for (let i = 0; i < 110; i++) {
+    const c = document.createElement('div'); c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw'; c.style.background = COLORS[i % COLORS.length];
+    c.style.animationDuration = (2.2 + Math.random() * 2) + 's'; c.style.animationDelay = (Math.random() * 0.6) + 's';
+    document.body.appendChild(c); setTimeout(() => c.remove(), 5000);
+  }
+}
+function toSetup() {
+  G.phase = 'setup'; G.battle = null;
+  $('#roundOv').classList.remove('show');
+  $('#game').classList.remove('battling');
+  $('#btnLaunch').style.display = ''; $('#btnLaunch').disabled = false; $('#btnSpeed').style.display = 'none';
+  $('#barHint').textContent = G.mode === 'pvp' ? '兩位玩家都設定好後按發射' : '設定好陀螺，按下發射';
+  $('#sbTime').textContent = '';
+  [0, 1].forEach(p => { $('#pb' + p).textContent = '設定中'; $('#danger' + p).style.display = 'none'; });
+  if (G.mode === 'cpu') {
+    if (!$('#cpuCover')) { const d = document.createElement('div'); d.className = 'cpu-cover'; d.id = 'cpuCover'; d.textContent = '電腦會在發射時決定配置'; $('#panel1').appendChild(d); }
+  }
+  updateScoreboard(); paintPanel(0); paintPanel(1);
+}
+$('#roundBox').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'next') { G.round++; toSetup(); }
+  else if (act === 'final') showFinal();
+  else if (act === 'theory') openTheory();
+  else if (act === 'home') { $('#roundOv').classList.remove('show'); showStart(); }
+  else if (act === 'again') { G.wins = [0, 0]; G.round = 1; G.history = []; toSetup(); }
+});
+
+/* ---------- 開始畫面 ---------- */
+function showStart() { G.phase = 'menu'; $('#startOv').classList.add('show'); }
+$('#modes').addEventListener('click', e => {
+  const b = e.target.closest('.mode'); if (!b) return;
+  G.mode = b.dataset.mode;
+  $$('#modes .mode').forEach(x => x.classList.toggle('on', x === b));
+  $('#name1lab').textContent = G.mode === 'cpu' ? '對手名字' : '玩家二名字';
+  $('#name1').placeholder = G.mode === 'cpu' ? '電腦' : '玩家二';
+});
+$('#series').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  $$('#series .chip').forEach(x => x.classList.toggle('on', x === b));
+  $('#sN').value = b.dataset.n; $('#sM').value = b.dataset.m;
+});
+$('#startGo').onclick = () => {
+  G.names = [$('#name0').value.trim() || '玩家一', $('#name1').value.trim() || (G.mode === 'cpu' ? '電腦' : '玩家二')];
+  let N = Math.max(1, Math.min(15, +$('#sN').value || 3)), M = Math.max(1, Math.min(N, +$('#sM').value || 2));
+  G.N = N; G.M = M; G.wins = [0, 0]; G.round = 1; G.history = [];
+  setNames();
+  $('#startOv').classList.remove('show');
+  $('#cpuCover') && $('#cpuCover').remove();
+  toSetup();
+};
+$('#startTheory').onclick = () => openTheory();
+let homeArmed = 0;
+$('#btnHome').onclick = () => {
+  // 戰鬥中要按兩次才離開（避免誤觸）
+  if (G.phase === 'battle' && Date.now() - homeArmed > 2500) { homeArmed = Date.now(); $('#btnHome').textContent = '再按一次離開'; setTimeout(() => { $('#btnHome').textContent = '主畫面'; }, 2500); return; }
+  $('#btnHome').textContent = '主畫面';
+  G.phase = 'menu'; G.battle = null; $('#game').classList.remove('battling'); $('#roundOv').classList.remove('show'); showStart();
+};
+$('#btnLaunch').onclick = launch;
+$('#btnSpeed').onclick = () => { G.speed = G.speed === 1 ? 2 : G.speed === 2 ? 0.25 : 1; $('#btnSpeed').textContent = `速度 ${G.speed === 0.25 ? '¼' : G.speed}×`; };
+$('#soundBtn').onclick = () => { G.sound = !G.sound; $('#soundBtn').textContent = '音效：' + (G.sound ? '開' : '關'); };
+
+/* ---------- 原理視窗 ---------- */
+function theoryHTML() {
+  const shapeRows = Object.values(SHAPES).map(s => `<tr><td>${s.name}</td><td>${s.type}</td><td>${s.k}</td><td>${s.alpha}°</td><td>${s.e}</td></tr>`).join('');
+  const tipRows = Object.values(TIPS).map(t => `<tr><td>${t.name}</td><td>${t.mu}</td><td>${(t.rtip * 1000).toFixed(1)} mm</td><td>${t.note}</td></tr>`).join('');
+  const massRows = [20, 30, 40, 60, 80].map(m => { const d = BP.derived({ shape: 'star', tip: 'sharp', mass: m, h: 15, rpm: 99999, spin: 1, v: 0.5, angle: 0 }); return `<tr><td>${m} g</td><td>${Math.round(d.wMaxRpm)} rpm</td><td>${(d.L * 1e3).toFixed(2)}</td><td>${d.tLife.toFixed(1)} s</td></tr>`; }).join('');
+  const kRows = Object.values(SHAPES).map(s => { const key = Object.keys(SHAPES).find(k => SHAPES[k] === s); const d = BP.derived({ shape: key, tip: 'sharp', mass: 50, h: 15, rpm: 99999, spin: 1, v: 0.5, angle: 0 }); return `<tr><td>${s.name}（k=${s.k}）</td><td>${Math.round(d.wMaxRpm)} rpm</td><td>${(d.L * 1e3).toFixed(2)}</td><td>${d.tLife.toFixed(1)} s</td></tr>`; }).join('');
+  return `
+  <div class="lv kid kid-box">
+    <h3>陀螺為什麼不會倒？</h3>
+    <ul>
+      <li>轉動的陀螺有「角動量」，可以想成一支看不見的箭頭，沿著轉軸指上或指下。畫面上藍色的箭頭就是它。</li>
+      <li>箭頭越長，陀螺越「固執」，越不容易被推歪。轉越快、越重、重量越靠外圈，箭頭越長。</li>
+      <li>陀螺慢下來以後，箭頭變短，就撐不住、開始搖晃，最後倒下。</li>
+    </ul>
+    <h3>能量只有一份</h3>
+    <ul>
+      <li>每顆陀螺能裝的轉動能量一樣多（2 焦耳）。陀螺越重，能轉的最高速度就越低。</li>
+      <li>所以要想清楚：要重一點（不怕撞），還是輕一點（轉很快）？</li>
+    </ul>
+    <h3>怎麼贏？</h3>
+    <ul>
+      <li><b>把對手撞出去：</b>對手越輕，被撞得越遠。紅線外有一道牆，要衝得夠快才翻得過去。</li>
+      <li><b>把對手撞倒：</b>被撞的時候陀螺會歪。神奇的是，它不是往被推的方向歪，而是往旁邊 90° 歪。</li>
+      <li><b>比誰轉得久：</b>尖頭最省力；平頭跑得快但轉速掉得快；重量放外圈的「飛輪」最持久。</li>
+      <li><b>反著轉的陀螺：</b>兩顆陀螺轉的方向相反時，碰到的地方是同方向滑動，比較不會互相刮掉轉速。</li>
+    </ul>
+  </div>
+  <div class="lv adv">
+    <p>以下是遊戲裡實際使用的模型與數值。陀螺半徑 r = 25 mm，每步 1/480 秒做數值積分。為了好玩，部分數值有調整過，但每條公式的方向和比例關係都是對的。</p>
+    <h3>1. 能量預算：質量與轉速的取捨</h3>
+    <div class="formula">I = k m r²　　E = ½ I ω² ≤ E<sub>max</sub> = ${BP.E_MAX} J　⇒　ω<sub>max</sub> = √(2E<sub>max</sub> / (k m r²))</div>
+    <p>質量加倍，最高轉速只剩 1/√2 ≈ 0.71 倍；但角動量 L = Iω = √(2EI) ∝ √(km) 反而變大。</p>
+    <table><tr><th>質量（星芒、尖頭）</th><th>最高轉速</th><th>L（×10⁻³ kg·m²/s）</th><th>不受撞擊可轉</th></tr>${massRows}</table>
+    <h3>2. 質量分布 k：同樣的質量，放外圈比較持久</h3>
+    <p>k 越大，質量越集中在外圈（實心圓盤 k = 0.5、薄圓環 k = 1）。尖端摩擦力矩 τ = μ m g r<sub>tip</sub> 跟質量成正比，I 也跟質量成正比，所以角減速度 τ/I = μ g r<sub>tip</sub> / (k r²) 跟質量無關，但跟 k 成反比。能量固定時 ω₀ ∝ 1/√k，因此持久時間 t ≈ ω₀ / (τ/I) ∝ √k：<b>質量放外圈的陀螺轉得比較久</b>。</p>
+    <table><tr><th>外型（50 g、尖頭）</th><th>最高轉速</th><th>L（×10⁻³）</th><th>不受撞擊可轉</th></tr>${kRows}</table>
+    <h3>3. 轉速衰減：摩擦力矩</h3>
+    <div class="formula">I dω/dt = −μ m g r<sub>tip</sub> − c ω　　（c = ${BP.C_AIR.toExponential(0)} N·m·s）</div>
+    <table><tr><th>尖端</th><th>μ</th><th>r<sub>tip</sub></th><th>特性</th></tr>${tipRows}</table>
+    <p>平頭和球頭會沿著場地繞圈跑，推動陀螺前進的功來自自轉動能，所以會額外消耗轉速。</p>
+    <h3>4. 陀螺儀穩定、傾斜與倒下</h3>
+    <p>快速自轉的陀螺被重力力矩 m g h sinθ 作用時不會倒，而是以下面的角速度進動：</p>
+    <div class="formula">Ω = m g h / (I ω)</div>
+    <p>能直立（「睡著」）的條件是轉速高過臨界轉速：</p>
+    <div class="formula">ω > ω<sub>c</sub> = √(4 m g h I<sub>⊥</sub>) / I　　I<sub>⊥</sub> = ½ k m r² + m h²</div>
+    <p>低於 ω<sub>c</sub>，傾斜角就越來越大；超過 37° 判定倒下。重心 h 越低，ω<sub>c</sub> 越小，越穩。</p>
+    <p><b>被撞後往 90° 歪：</b>撞擊衝量 J（水平）作用在高度 h，帶來角衝量 ΔL = h ẑ × J。ẑ × J 跟 J 垂直，所以轉軸的偏轉方向跟推力差 90°，偏轉角約 Δθ ≈ J h / L。L 越大越不怕撞。</p>
+    <h3>5. 碰撞：動量守恆、恢復係數與刃角</h3>
+    <p>接觸點的相對速度包含平移和自轉的表面速度：</p>
+    <div class="formula">u = (v₁ − v₂) + (ω₁ + ω₂) r t̂</div>
+    <p>兩顆陀螺同方向旋轉時，接觸點的表面速度方向相反，互相刮擦（滑動速度可達十幾 m/s），雙方都損失轉速。反方向旋轉時表面速度同向，滑動小，摩擦反而會把角動量從轉得快的一方「交給」另一方。</p>
+    <p>刃角 α 讓有效法線往滑動方向偏：q̂ = cos α n̂ + sin α t̂。沿 q̂ 施加衝量</p>
+    <div class="formula">J = (1 + e)(u · q̂) / [ 1/m₁ + 1/m₂ + r² sin²α (1/I₁ + 1/I₂) ]</div>
+    <p>再沿垂直方向加上庫倫摩擦（|J<sub>t</sub>| ≤ ${BP.MU_CONTACT} J）。總動量守恆，能量只會減少：被彈開的動能來自自轉動能。同一個衝量下 Δv = J/m，輕的陀螺被彈得遠。</p>
+    <table><tr><th>外型</th><th>類型</th><th>k</th><th>刃角 α</th><th>恢復係數 e</th></tr>${shapeRows}</table>
+    <h3>6. 碗形場地與出界</h3>
+    <p>場地剖面 z = C r²（C = ${BP.BOWL_C} m⁻¹），沿坡面的回復加速度約 a = −2gCr，是簡諧運動，陀螺會在碗裡來回繞圈。出界線外有高 H = ${BP.H_WALL * 100} cm 的邊牆，徑向速度要超過 √(2gH) ≈ ${BP.V_ESC.toFixed(2)} m/s 才翻得出去，否則撞牆反彈。</p>
+    <p style="color:var(--muted)">簡化：陀螺視為剛體圓盤，傾斜以小角度向量處理，忽略三維章動與刃的實際幾何；側向「繞場」的力是現象式模型。</p>
+  </div>`;
+}
+function openTheory() { $('#theoryBody').innerHTML = theoryHTML(); $('#theoryModal').classList.add('show'); }
+$('#theoryTop').onclick = openTheory; $('#btnTheory').onclick = openTheory;
+$('#theoryClose').onclick = () => $('#theoryModal').classList.remove('show');
+$('#theoryModal').addEventListener('click', e => { if (e.target.id === 'theoryModal') $('#theoryModal').classList.remove('show'); });
+$('#lvSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  $$('#lvSeg button').forEach(x => x.classList.toggle('on', x === b));
+  $('#theoryBody').className = 'modal-body theory-body ' + b.dataset.v;
+});
+
+/* ---------- 主迴圈 ---------- */
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (G.phase === 'battle' && G.battle) {
+    const bt = G.battle, h = 1 / 480;
+    let simT = dt * G.speed;
+    const n = Math.min(60, Math.max(1, Math.round(simT / h)));
+    for (let i = 0; i < n && !bt.over; i++) handleEvents(bt.step(h), bt);
+    if (now - liveT > 90) { liveT = now; updateLive(bt); }
+    if (bt.over) { updateLive(bt); G.phase = 'ending'; setTimeout(endRound, 1300); }
+  }
+  arena.update(dt, (G.phase === 'battle' || G.phase === 'ending' || G.phase === 'roundEnd') ? G.battle : null);
+  requestAnimationFrame(loop);
+}
+for (const p of [0, 1]) bindPanel(p);
+setNames(); paintPanel(0); paintPanel(1); updateScoreboard();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
