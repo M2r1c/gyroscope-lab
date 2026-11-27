@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>陀螺儀實驗室</title>
+<meta name="description" content="仿 PhET 的陀螺儀模擬：陀螺儀的定軸性與進動，以及船上轉盤的角動量守恆。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* 版面：仿 PhET「密度」——首頁選單元、全畫面場景、浮動小面板、上方可收合刻度條、底部黑色導覽列 */
+:root {
+  color-scheme: light;
+  --text: #1b1f24;
+  --muted: #5b6672;
+  --line: #9aa5b1;
+  --panel: rgba(255, 255, 255, 0.96);
+  --accent: #2f7de1;
+  --reset: #f2a33a;
+  --ok: #1a9c4a;
+  --bad: #d63a2f;
+  --vec-L: #1565ff;
+  --vec-tau: #e5332a;
+  --vec-dL: #e09a00;
+  --vec-F: #8e44ad;
+  --sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #000; color: var(--text); font-family: var(--sans); font-size: 15px; -webkit-font-smoothing: antialiased; }
+button, select { font-family: inherit; }
+[hidden] { display: none !important; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* 導覽列 */
+.navbar { position: fixed; left: 0; right: 0; bottom: 0; height: 58px; background: #000; color: #fff; display: flex; align-items: center; gap: 10px; padding: 0 max(12px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(12px, env(safe-area-inset-left, 0px)); z-index: 50; }
+.navbar .title { font-weight: 900; font-size: 18px; white-space: nowrap; }
+.navbar .screens { flex: 1; display: flex; justify-content: center; gap: 6px; }
+.nbtn { background: transparent; border: 0; color: #9aa3ad; display: flex; flex-direction: column; align-items: center; padding: 4px 12px; border-radius: 8px; cursor: pointer; }
+.nbtn .ic { width: 40px; height: 26px; border-radius: 3px; overflow: hidden; background: linear-gradient(#dcefff, #fbfdff); display: flex; align-items: center; justify-content: center; }
+.nbtn .ic svg { width: 36px; height: 24px; }
+.nbtn span { font-size: 11px; margin-top: 1px; }
+.nbtn.on { color: #ffd23f; }
+.nbtn.on .ic { outline: 2px solid #ffd23f; }
+.navbar .home-btn, .navbar .site-link { color: #fff; background: transparent; border: 1px solid #555; border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+
+/* 首頁 */
+.home { position: fixed; inset: 0; background: #000; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 20px max(16px, env(safe-area-inset-left, 0px)); z-index: 40; overflow-y: auto; }
+.home h1 { margin: 0; font-size: clamp(34px, 6vw, 60px); font-weight: 500; letter-spacing: 2px; }
+.tiles { display: flex; gap: 36px; flex-wrap: wrap; justify-content: center; }
+.tile { background: transparent; border: 0; color: #fff; cursor: pointer; text-align: center; padding: 0; text-decoration: none; display: block; }
+.tile .pic { width: 230px; height: 150px; border: 4px solid transparent; background: linear-gradient(#dcefff 0%, #fbfdff 70%, #d9b48a 70%); display: flex; align-items: center; justify-content: center; }
+.tile:hover .pic, .tile:focus-visible .pic { border-color: #ffd23f; outline: none; }
+.tile .pic svg { width: 80%; height: 90%; }
+.tile b { display: block; font-size: 26px; font-weight: 500; margin-top: 6px; }
+.tile small { display: block; color: #aab3bd; font-size: 13px; max-width: 230px; margin: 2px auto 0; }
+
+/* 單元畫面 */
+.screen { position: fixed; inset: 0 0 58px 0; }
+.play { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(#cfe7ff 0%, #f4f9ff 62%); }
+.play canvas { display: block; width: 100%; height: 100%; }
+.labels { position: absolute; inset: 0; pointer-events: none; }
+.vlabel { position: absolute; transform: translate(-50%, -50%); font-weight: 900; font-size: 18px; padding: 0 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.85); white-space: nowrap; }
+.dock { position: absolute; inset: 0; pointer-events: none; }
+.dock > * { pointer-events: auto; }
+.pbox { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.pbox h3 { margin: 0 0 6px; font-size: 14px; font-weight: 900; }
+.tr { position: absolute; top: 12px; right: 12px; width: 268px; }
+.tc { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: min(470px, calc(100% - 600px)); min-width: 300px; }
+.bl { position: absolute; left: 12px; bottom: 12px; width: 286px; }
+.br { position: absolute; right: 12px; bottom: 78px; width: 268px; }
+.hint { position: absolute; left: 12px; top: 12px; width: 280px; font-size: 13.5px; line-height: 1.55; }
+.hint b { color: var(--vec-L); }
+
+/* 元件 */
+.btn { border: 1px solid #8a96a3; background: linear-gradient(#fff, #e6ebf0); color: var(--text); border-radius: 7px; padding: 6px 12px; font-size: 14px; font-weight: 700; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.btn:hover { border-color: var(--accent); }
+.btn:active, .btn.held { background: #cfe2fa; border-color: var(--accent); }
+.btn.on { background: linear-gradient(#5fd38a, #27a85a); color: #fff; border-color: #1d8a48; }
+.btn:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.acts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.acts .btn { padding: 9px 6px; font-size: 14px; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+select { width: 100%; padding: 5px 6px; font-size: 14px; border: 1px solid #8a96a3; border-radius: 4px; background: #fff; }
+.sl { margin: 8px 0 2px; }
+.sl .hd { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; align-items: center; }
+.sl .hd .v { font-weight: 500; border: 1px solid var(--line); border-radius: 3px; padding: 0 6px; background: #fff; min-width: 76px; text-align: right; font-variant-numeric: tabular-nums; }
+.sl .ctl { display: flex; align-items: center; gap: 4px; }
+.sl .ctl button { width: 28px; height: 28px; border: 1px solid #555; background: #fff; border-radius: 4px; cursor: pointer; font-size: 18px; font-weight: 900; line-height: 1; padding: 0; }
+.sl input { flex: 1; -webkit-appearance: none; appearance: none; height: 26px; background: transparent; cursor: pointer; }
+.sl input::-webkit-slider-runnable-track { height: 3px; background: #777; }
+.sl input::-moz-range-track { height: 3px; background: #777; }
+.sl input::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 22px; background: #e5332a; border: 1px solid #8b1a14; border-radius: 3px 3px 6px 6px; margin-top: -10px; }
+.sl input::-moz-range-thumb { width: 11px; height: 20px; background: #e5332a; border: 1px solid #8b1a14; border-radius: 3px 3px 6px 6px; }
+.ck { display: flex; align-items: center; gap: 6px; font-size: 14px; margin-top: 6px; cursor: pointer; }
+.ck input { width: 16px; height: 16px; accent-color: var(--accent); }
+.read { font-size: 13px; margin-top: 6px; color: var(--muted); }
+.read b { color: var(--text); font-variant-numeric: tabular-nums; }
+.accordion > button { display: flex; align-items: center; gap: 8px; width: 100%; background: transparent; border: 0; padding: 0; font-weight: 900; font-size: 14px; cursor: pointer; color: var(--text); text-align: left; }
+.accordion > button .tri { display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; background: #f2a33a; color: #fff; border-radius: 3px; font-size: 13px; line-height: 1; }
+.accordion .body { margin-top: 6px; }
+.accordion.closed .body { display: none; }
+.scale { position: relative; height: 54px; margin: 0 22px; }
+.scale .bar { position: absolute; left: 0; right: 0; top: 16px; height: 14px; border: 1px solid #333; background: #fff; }
+.scale .tick { position: absolute; top: 16px; height: 14px; border-left: 1px solid #333; }
+.scale .tl { position: absolute; top: 33px; transform: translateX(-50%); font-size: 11px; color: #333; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.scale .mk { position: absolute; top: 0; transform: translateX(-50%); color: var(--bad); font-size: 11px; font-weight: 900; white-space: nowrap; text-align: center; line-height: 1.1; }
+.scale .mk::after { content: ""; display: block; margin: 1px auto 0; width: 0; height: 0; border: 5px solid transparent; border-top: 6px solid var(--bad); border-bottom: 0; }
+table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.t th, table.t td { padding: 3px 6px; border-bottom: 1px solid #dde3ea; text-align: left; }
+table.t td:last-child, table.t th:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.watch { font-size: 32px; font-weight: 900; font-variant-numeric: tabular-nums; text-align: center; background: #111; color: #ffd23f; border-radius: 6px; padding: 2px 0; margin: 4px 0 6px; }
+.letters { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.letters .btn { padding: 7px 0; }
+.letters .btn.cur { background: #cfe2fa; border-color: var(--accent); color: #0d4fa8; }
+.ans { display: grid; grid-template-columns: 22px 1fr 18px; gap: 4px 6px; align-items: center; font-size: 13px; }
+.ans select { font-size: 12.5px; padding: 3px; }
+.mark { font-weight: 900; }
+.q { font-size: 15px; font-weight: 700; line-height: 1.55; margin: 6px 0 8px; }
+.q em { font-style: normal; color: #0d4fa8; background: #e3efff; border-radius: 4px; padding: 0 4px; }
+.opt { display: block; width: 100%; text-align: left; margin: 5px 0; padding: 8px 10px; border-radius: 7px; border: 1px solid #8a96a3; background: #fff; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--text); }
+.opt:hover:not(:disabled) { border-color: var(--accent); }
+.opt.right { border-color: var(--ok); background: #e6f7ec; }
+.opt.wrong { border-color: var(--bad); background: #fdecea; }
+.reveal { display: none; font-size: 13.5px; line-height: 1.6; margin-top: 8px; }
+.reveal.show { display: block; }
+.verdict { font-size: 16px; font-weight: 900; }
+.timebar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.85); border-radius: 999px; padding: 4px 12px 4px 6px; border: 1px solid var(--line); z-index: 8; }
+.round { width: 44px; height: 44px; border-radius: 50%; border: 1px solid #8a96a3; background: radial-gradient(#fff, #e3e9ef); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.round svg { width: 20px; height: 20px; }
+.timebar label { font-size: 13px; display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
+.reset { position: absolute; right: 14px; bottom: 12px; width: 52px; height: 52px; border-radius: 50%; border: 1px solid #b06e12; background: radial-gradient(#ffc163, var(--reset)); cursor: pointer; z-index: 8; display: flex; align-items: center; justify-content: center; }
+.reset svg { width: 30px; height: 30px; }
+.modal-bg { position: fixed; inset: 0 0 58px 0; background: rgba(0, 0, 0, 0.45); display: none; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
+.modal-bg.show { display: flex; }
+.modal { background: #fff; border-radius: 12px; width: min(620px, 100%); max-height: 100%; overflow: auto; padding: 16px 20px 20px; font-size: 14.5px; line-height: 1.65; }
+.modal h2 { margin: 0 0 6px; font-size: 20px; display: flex; justify-content: space-between; align-items: center; }
+.modal h4 { margin: 14px 0 2px; color: #0d4fa8; }
+.formula { font-family: "Times New Roman", serif; font-style: italic; font-size: 17px; text-align: center; background: #f4f7fa; border-radius: 6px; padding: 4px; margin: 4px 0; }
+
+/* 左邊大畫面＋右邊控制欄 */
+.screen.split .play { right: 330px; }
+.screen.split .dock { position: absolute; top: 0; right: 0; bottom: 0; left: auto; width: 330px; overflow-y: auto; background: #eef3f8; border-left: 1px solid var(--line); padding: 10px; display: flex; flex-direction: column; gap: 8px; pointer-events: auto; }
+.screen.split .dock > .pbox { position: static; width: auto; transform: none; min-width: 0; }
+.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; font-size: 12.5px; margin-top: 8px; }
+.legend i { display: inline-block; width: 22px; height: 6px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+.legend i.dash { height: 4px; background: repeating-linear-gradient(90deg, #222 0 6px, transparent 6px 10px); }
+.showbtns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tog { border: 1px solid #8a96a3; background: #fff; color: var(--muted); border-radius: 7px; padding: 7px 4px; font-size: 14px; font-weight: 700; cursor: pointer; }
+.tog.on { background: #cfe2fa; border-color: var(--accent); color: #0d4fa8; }
+.tog:focus-visible { outline: 2px solid var(--accent); }
+.rot-h { position: absolute; z-index: 5; transform: translate(-50%, -50%); color: #6b7480; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; text-align: center; padding: 2px; border-radius: 8px; }
+.rot-h svg { display: block; width: 46px; height: 32px; margin: 0 auto; filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.9)); }
+.rot-h span { display: block; font-size: 11px; font-weight: 700; color: #4b5563; }
+.rot-h:hover, .rot-h.active { color: #111; background: rgba(255, 255, 255, 0.6); }
+.rot-h.active { cursor: grabbing; }
+.rot-h:focus-visible { outline: 2px solid var(--accent); }
+.prot { position: absolute; z-index: 6; width: 300px; transform: translate(-50%, -100%); pointer-events: none; user-select: none; -webkit-user-select: none; }
+.prot svg { display: block; width: 100%; height: auto; }
+.prot .grab { pointer-events: auto; cursor: pointer; touch-action: none; }
+.prot #iProtKnob { cursor: grab; }
+.prot.dragging .grab { cursor: grabbing; }
+.bars { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; height: 72px; }
+.bars .bar { position: relative; border-left: 1px solid #c7d0da; border-right: 1px solid #c7d0da; background: linear-gradient(#000, #000) 0 50% / 100% 1px no-repeat; }
+.bars .bar .fill { position: absolute; left: 18%; right: 18%; bottom: 50%; height: 0; border-radius: 2px; }
+.bars .bar span { position: absolute; left: 0; right: 0; bottom: -18px; text-align: center; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.bars { margin-bottom: 18px; }
+.quizbg { position: absolute; inset: 0; z-index: 40; background: rgba(10, 20, 35, 0.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.quizcard { position: relative; background: #fff; border-radius: 12px; width: min(460px, 100%); max-height: 100%; overflow: auto; padding: 16px 18px 18px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3); }
+.quizcard .qx { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border-radius: 8px; border: 1px solid #b8c2cc; background: #fff; font-size: 18px; cursor: pointer; line-height: 1; }
+.quizcard .qx:hover { border-color: var(--accent); }
+.quizcard .qtag { font-size: 13px; font-weight: 900; color: #0d4fa8; }
+.quizcard .qbtns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; flex-wrap: wrap; }
+.qopen { position: absolute; left: 12px; top: 12px; z-index: 9; }
+.val2 { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 14px; }
+.val2 span:nth-child(even) { text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) {
+  .screen.split .play { right: auto; }
+  .screen.split .dock { position: static; width: auto; border-left: 0; overflow: visible; }
+  html, body { overflow: auto; height: auto; }
+  .screen { position: static; padding-bottom: 66px; background: #eef3f8; }
+  .play { position: relative; height: 58svh; min-height: 330px; }
+  .dock { position: static; display: flex; flex-direction: column; gap: 8px; padding: 8px max(10px, env(safe-area-inset-right, 0px)) 0 max(10px, env(safe-area-inset-left, 0px)); }
+  .dock > .pbox { position: static; width: auto; transform: none; min-width: 0; }
+  .hint { order: -1; }
+  .navbar .title { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- ============ 首頁 ============ -->
+<div class="home" id="home">
+  <div class="tiles">
+    <button class="tile" data-go="intro">
+      <div class="pic"><svg viewBox="0 0 160 110"><rect x="44" y="94" width="72" height="12" rx="2" fill="#d9302c"/><rect x="76" y="82" width="8" height="13" fill="#555"/><circle cx="80" cy="48" r="38" fill="none" stroke="#3a3f45" stroke-width="7"/><ellipse cx="80" cy="48" rx="30" ry="10" fill="none" stroke="#4b5158" stroke-width="7"/><ellipse cx="80" cy="48" rx="9" ry="24" fill="none" stroke="#5c636b" stroke-width="6"/><ellipse cx="96" cy="48" rx="5" ry="17" fill="#c8955c"/><line x1="80" y1="48" x2="146" y2="48" stroke="#1565ff" stroke-width="5"/><path d="M152 48 l-12 -6 v12 z" fill="#1565ff"/></svg></div>
+      <b>陀螺儀</b>
+    </button>
+    <button class="tile" data-go="boat">
+      <div class="pic" style="background:linear-gradient(#dcefff 0%, #fbfdff 60%, #4f9be0 60%)"><svg viewBox="0 0 160 110"><rect x="0" y="62" width="160" height="48" fill="#4f9be0"/><path d="M0 70 q20 -6 40 0 t40 0 t40 0 t40 0" fill="none" stroke="#9fd0ff" stroke-width="3"/><path d="M28 56 L118 56 Q140 58 150 66 Q140 74 118 78 L28 78 Z" fill="#f2f2f2" stroke="#555" stroke-width="3"/><rect x="74" y="44" width="10" height="14" fill="#9aa3ad"/><ellipse cx="79" cy="42" rx="30" ry="7" fill="#c8955c" stroke="#7a5230" stroke-width="2"/><path d="M48 22 A34 12 0 0 1 110 22" fill="none" stroke="#1565ff" stroke-width="4"/><path d="M114 24 l-10 -7 l1 11 z" fill="#1565ff"/><path d="M44 98 A40 10 0 0 0 116 98" fill="none" stroke="#ff8c1a" stroke-width="4"/><path d="M40 95 l3 10 l8 -6 z" fill="#ff8c1a"/></svg></div>
+      <b>船</b>
+    </button>
+  </div>
+</div>
+
+<!-- ============ 介紹 ============ -->
+<section class="screen split" data-screen="intro" hidden>
+  <div class="play"><div class="labels"></div>
+    <div class="rot-h" id="iRotRoll" tabindex="0" role="slider" aria-label="左右傾斜底座（按住左右拖，或拖量角器上的紅點）" aria-valuemin="-35" aria-valuemax="35" aria-valuenow="0">
+      <svg viewBox="0 0 60 40"><path d="M10 30 A 22 22 0 0 1 50 30" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path d="M3 25 L12 36 L16 23 Z M57 25 L48 36 L44 23 Z" fill="currentColor"/></svg>
+      <span>左右</span>
+    </div>
+    <div class="prot" id="iProt" hidden>
+      <svg viewBox="-160 -150 320 172" id="iProtSvg">
+        <path d="M -130 0 A 130 130 0 0 1 130 0" fill="rgba(255,255,255,0.88)" stroke="#5b6672" stroke-width="2"/>
+        <path id="iProtRange" fill="rgba(47,125,225,0.14)" d=""/>
+        <g id="iProtTicks"></g>
+        <path class="grab" id="iProtHit" d="M -126 0 A 126 126 0 0 1 126 0" fill="none" stroke="transparent" stroke-width="34"/>
+        <line id="iProtNeedle" x1="0" y1="0" x2="0" y2="-118" stroke="#e5332a" stroke-width="3"/>
+        <circle class="grab" id="iProtKnob" cx="0" cy="-118" r="11" fill="#e5332a" stroke="#8b1a14" stroke-width="2"/>
+        <text id="iProtVal" x="0" y="-26" font-size="22" font-weight="900" text-anchor="middle" fill="#1b1f24">0°</text>
+        <text id="iProtL" x="-140" y="16" font-size="14" font-weight="900" fill="#5a3d22">左</text>
+        <text id="iProtR" x="126" y="16" font-size="14" font-weight="900" fill="#5a3d22">右</text>
+      </svg>
+    </div>
+    <div class="timebar"><button class="round" data-act="play"></button>
+      <label><input type="radio" name="spd-intro" value="1" checked> 正常</label>
+      <label><input type="radio" name="spd-intro" value="0.2"> 慢動作</label></div>
+    <button class="reset" data-act="reset" aria-label="全部重設"></button>
+  </div>
+  <div class="dock">
+    <div class="pbox">
+      <h3>馬達</h3>
+      <div class="row"><button class="btn" id="iPower">馬達：關</button><span class="num" id="iRpmNow" style="font-weight:700">0 rpm</span></div>
+      <div class="sl"><div class="hd"><span>轉速</span><span class="v" id="vRpm">6000 rpm</span></div>
+        <div class="ctl"><button data-step="-500" data-for="iRpm" aria-label="減少">−</button><input type="range" id="iRpm" min="0" max="8000" step="500" value="6000"><button data-step="500" data-for="iRpm" aria-label="增加">＋</button></div></div>
+    </div>
+    <div class="pbox">
+      <h3>木圓盤</h3>
+      <div class="sl" style="margin-top:0"><div class="hd"><span>半徑</span><span class="v" id="vRad">3.0 cm</span></div>
+        <div class="ctl"><button data-step="-0.5" data-for="iRad" aria-label="減少">−</button><input type="range" id="iRad" min="2" max="4" step="0.5" value="3"><button data-step="0.5" data-for="iRad" aria-label="增加">＋</button></div></div>
+      <div class="sl"><div class="hd"><span>外圈加重</span><span class="v" id="vCoin">0 枚硬幣</span></div>
+        <div class="ctl"><button data-step="-1" data-for="iCoin" aria-label="減少">−</button><input type="range" id="iCoin" min="0" max="8" step="1" value="0"><button data-step="1" data-for="iCoin" aria-label="增加">＋</button></div></div>
+    </div>
+    <div class="pbox">
+      <div class="val2">
+        <span>轉動慣量</span><span id="iI">45 g·cm²</span>
+        <span>角動量</span><span id="iLval">0</span>
+        <span>推完軸偏了</span><span id="iDefl">—</span>
+      </div>
+    </div>
+    <div class="pbox">
+      <h3>顯示</h3>
+      <div class="showbtns">
+        <button class="tog on" data-show="arrows">箭頭</button>
+        <button class="tog on" data-show="trail">軌跡</button>
+        <button class="tog on" data-show="guide">輔助線</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 船 ============ -->
+<section class="screen split" data-screen="boat" hidden>
+  <div class="play"><div class="labels"></div>
+    <button class="reset" data-act="reset" aria-label="全部重設"></button>
+  </div>
+  <div class="dock">
+    <div class="pbox">
+      <h3>馬達</h3>
+      <div class="row"><button class="btn" id="bPower">馬達：關</button><button class="btn" id="bBrake" title="按住不放：用手抓住轉盤">抓住轉盤</button></div>
+      <div class="showbtns" style="grid-template-columns:1fr 1fr;margin-top:8px">
+        <button class="tog on" id="bCW">轉盤順時針 ↻</button>
+        <button class="tog" id="bCCW">轉盤逆時針 ↺</button>
+      </div>
+      <div class="val2" style="margin-top:8px">
+        <span>轉盤轉速</span><span id="bRpmR">0 rpm</span>
+        <span>船的轉速</span><span id="bRpmB">0 rpm</span>
+        <span>船轉了</span><span id="bAng">0°</span>
+      </div>
+    </div>
+    <div class="pbox">
+      <h3>轉盤與船</h3>
+      <div class="sl" style="margin-top:0"><div class="hd"><span>轉盤半徑</span><span class="v" id="vBRad">3.0 cm</span></div>
+        <div class="ctl"><button data-step="-0.5" data-for="bRad" aria-label="減少">−</button><input type="range" id="bRad" min="2" max="5" step="0.5" value="3"><button data-step="0.5" data-for="bRad" aria-label="增加">＋</button></div></div>
+      <div class="sl"><div class="hd"><span>船的質量</span><span class="v" id="vBMass">500 g</span></div>
+        <div class="ctl"><button data-step="-50" data-for="bMass" aria-label="減少">−</button><input type="range" id="bMass" min="100" max="1000" step="50" value="500"><button data-step="50" data-for="bMass" aria-label="增加">＋</button></div></div>
+      <div class="showbtns" style="grid-template-columns:1fr 1fr;margin-top:8px">
+        <button class="tog on" id="bWaterOn">有水的阻力</button>
+        <button class="tog" id="bWaterOff">沒有阻力</button>
+      </div>
+    </div>
+    <div class="pbox">
+      <h3>角動量（往上為正）</h3>
+      <div class="bars" id="bBars">
+        <div class="bar"><div class="fill" style="background:var(--vec-L)"></div><span>轉盤</span></div>
+        <div class="bar"><div class="fill" style="background:#ff8c1a"></div><span>船</span></div>
+      </div>
+    </div>
+    <div class="pbox">
+      <h3>顯示</h3>
+      <div class="showbtns" style="grid-template-columns:1fr">
+        <button class="tog on" id="bArrows">箭頭</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<nav class="navbar">
+  <div class="screens">
+    <button class="nbtn" data-go="intro"><span class="ic"><svg viewBox="0 0 36 24"><circle cx="18" cy="12" r="9" fill="none" stroke="#3a3f45" stroke-width="2.2"/><ellipse cx="18" cy="12" rx="9" ry="3" fill="none" stroke="#4b5158" stroke-width="2"/><line x1="18" y1="12" x2="33" y2="12" stroke="#1565ff" stroke-width="2"/></svg></span><span>陀螺儀</span></button>
+    <button class="nbtn" data-go="boat"><span class="ic" style="background:linear-gradient(#dcefff 55%, #4f9be0 55%)"><svg viewBox="0 0 36 24"><path d="M5 12 L26 12 Q32 13 34 15 Q32 17 26 18 L5 18 Z" fill="#f2f2f2" stroke="#555" stroke-width="1.2"/><ellipse cx="17" cy="9" rx="8" ry="2.2" fill="#c8955c"/></svg></span><span>船</span></button>
+  </div>
+  <button class="home-btn" data-go="home" aria-label="單元選單">⌂</button>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* 簡易環繞相機：拖曳旋轉、滾輪／雙指縮放（不需額外函式庫） */
+(function (root) {
+  'use strict';
+  class Orbit {
+    constructor(camera, dom, opts) {
+      opts = opts || {};
+      this.camera = camera; this.dom = dom;
+      this.target = opts.target || new THREE.Vector3(0, 0, 0);
+      this.dist = opts.dist || 5; this.yaw = opts.yaw || 0.6; this.pitch = opts.pitch || 0.5;
+      this.minDist = opts.minDist || 1; this.maxDist = opts.maxDist || 30;
+      this.minPitch = opts.minPitch != null ? opts.minPitch : 0.05; this.maxPitch = opts.maxPitch || 1.5;
+      this.home = { dist: this.dist, yaw: this.yaw, pitch: this.pitch };
+      this.pointers = new Map();
+      dom.style.touchAction = 'none';
+      dom.addEventListener('pointerdown', e => { if (this.enabled === false) return; if (e.isPrimary) this.pointers.clear(); try { dom.setPointerCapture(e.pointerId); } catch (_) {} this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
+      dom.addEventListener('pointermove', e => {
+        if (this.enabled === false || !this.pointers.has(e.pointerId)) return;
+        const p = this.pointers.get(e.pointerId);
+        if (this.pointers.size === 1) {
+          this.yaw -= (e.clientX - p.x) * 0.008;
+          this.pitch = Math.max(this.minPitch, Math.min(this.maxPitch, this.pitch + (e.clientY - p.y) * 0.006));
+        } else if (this.pointers.size === 2) {
+          const pts = [...this.pointers.values()];
+          const d0 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          p.x = e.clientX; p.y = e.clientY;
+          const pts2 = [...this.pointers.values()];
+          const d1 = Math.hypot(pts2[0].x - pts2[1].x, pts2[0].y - pts2[1].y);
+          if (d0 > 0) this.zoom(d0 / d1);
+        }
+        p.x = e.clientX; p.y = e.clientY;
+        this.update();
+      });
+      const up = e => this.pointers.delete(e.pointerId);
+      dom.addEventListener('pointerup', up); dom.addEventListener('pointercancel', up); dom.addEventListener('lostpointercapture', up);
+      dom.addEventListener('wheel', e => { if (this.enabled === false) return; e.preventDefault(); this.zoom(Math.exp(e.deltaY * 0.001)); this.update(); }, { passive: false });
+      this.update();
+    }
+    zoom(f) { this.dist = Math.max(this.minDist, Math.min(this.maxDist, this.dist * f)); }
+    reset() { Object.assign(this, this.home); this.update(); }
+    update() {
+      const c = Math.cos(this.pitch), t = this.target;
+      this.camera.position.set(t.x + this.dist * c * Math.sin(this.yaw), t.y + this.dist * Math.sin(this.pitch), t.z + this.dist * c * Math.cos(this.yaw));
+      this.camera.lookAt(t);
+    }
+  }
+  /* 讓 3D 物件旁邊顯示 HTML 標籤 */
+  function placeLabel(el, pos3, camera, w, h) {
+    const v = pos3.clone().project(camera);
+    if (v.z > 1) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.style.left = ((v.x + 1) / 2 * w) + 'px';
+    el.style.top = ((1 - v.y) / 2 * h) + 'px';
+  }
+  /* 滑桿進度條顏色 */
+  function paintRange(input) {
+    const pct = (input.value - input.min) / (input.max - input.min) * 100;
+    input.style.setProperty('--pct', pct + '%');
+  }
+  root.Orbit = Orbit; root.placeLabel = placeLabel; root.paintRange = paintRange;
+})(this);
+
+</script>
+<script>
+/* 陀螺儀實驗室：物理核心（不依賴畫面，可單獨測試）
+ * 物理座標：x 向前、y 向左、z 向上（右手座標）
+ * 1) Gimbal   三環萬向支架＋馬達飛輪（我們的實體陀螺儀）
+ * 2) BoatSpin 船上馬達開機時，船往反方向轉（角動量守恆）
+ * 3) BoatRoll 搖晃船：轉盤裝在鉸鏈上，或直接固定在船上
+ */
+(function (root) {
+  'use strict';
+  const g = 9.8;
+  const V = {
+    add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+    sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+    mul: (a, s) => [a[0] * s, a[1] * s, a[2] * s],
+    dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+    cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+    len: a => Math.hypot(a[0], a[1], a[2]),
+    unit: a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+    // Rodrigues：把向量 a 繞單位軸 k 轉 t 弧度
+    rot: (a, k, t) => {
+      const c = Math.cos(t), s = Math.sin(t), kd = k[0] * a[0] + k[1] * a[1] + k[2] * a[2];
+      const kx = [k[1] * a[2] - k[2] * a[1], k[2] * a[0] - k[0] * a[2], k[0] * a[1] - k[1] * a[0]];
+      return [a[0] * c + kx[0] * s + k[0] * kd * (1 - c), a[1] * c + kx[1] * s + k[1] * kd * (1 - c), a[2] * c + kx[2] * s + k[2] * kd * (1 - c)];
+    }
+  };
+
+  /* ---------- 1. 三環萬向支架陀螺儀 ----------
+   * 內環（含橫樑、馬達、電池、飛輪）的姿態用三個正交單位向量 ex, ey, ez 表示，
+   * 飛輪轉軸 n = ez。萬向支架讓 n 可以指向任何方向。
+   * 自轉角動量 L = I3 ω n；軸本身的角速度 Ω（垂直 n）＋繞 n 的轉動 σ。
+   *   I_t dΩ/dt = τ⊥ − L (Ω × n)      ← 陀螺效應：力矩讓軸往 τ 的方向偏，而不是往力的方向倒
+   *   I_n dσ/dt = τ∥ − dL/dt           ← 馬達加速時，反作用力讓支架繞轉軸反轉
+   * 力矩：軸承摩擦（把內環往底座的轉動拖）、重心偏差 δ 的重力、手推。 */
+  class Gimbal {
+    constructor(p) {
+      this.p = Object.assign({
+        I3: 3.9e-5,   // 飛輪轉動慣量（木圓盤＋8 枚硬幣）
+        It: 3.0e-4,   // 內環組件（含部分環）繞橫向軸的轉動慣量
+        In: 2.0e-4,   // 繞飛輪軸
+        M: 0.12,      // 內環上所有東西的質量
+        c: 2.0e-4,    // 軸承摩擦（橫向）
+        cn: 4.0e-3,   // 軸承摩擦（繞飛輪軸，3D 列印轉軸比較緊）
+        lever: 0.04,  // 手推的力臂（推在內環邊緣）
+        tauUp: 3.5, tauDown: 10, // 馬達加速、滑行的時間常數 (s)
+        rpm: 6000, delta: 0     // 馬達目標轉速、重心偏差 (m，正 = 偏向馬達那側)
+      }, p || {});
+      this.reset();
+    }
+    reset() {
+      // 一開始飛輪軸朝上（跟最外圈的轉軸平行），角動量 L 朝上
+      this.ex = [1, 0, 0]; this.ey = [0, 1, 0]; this.ez = [0, 0, 1];
+      this.Om = [0, 0, 0]; this.sigma = 0;
+      this.w = 0; this.motor = false;
+      this.baseAngle = 0; this.baseRate = 0; this.baseTilt = 0; this.tiltRate = 0; this.basePitch = 0; this.pitchRate = 0;
+      this.push = [0, 0, 0]; this.t = 0; this.lastTau = [0, 0, 0];
+    }
+    get n() { return this.ez; }
+    get L() { return this.p.I3 * this.w; }
+    get rpmNow() { return this.w * 30 / Math.PI; }
+    /* 重力力矩 τ = (δ n) × (−M g ẑ) */
+    gravTorque() { const n = this.ez; return V.mul([n[1], -n[0], 0], -this.p.M * g * this.p.delta); }
+    /* 理論進動角速度 Ω = M g δ / L（跟軸的仰角無關） */
+    get omegaTheory() { return Math.abs(this.L) < 1e-7 ? NaN : this.p.M * g * this.p.delta / this.L; }
+    step(dt) {
+      const p = this.p;
+      // 馬達：一階加速／滑行
+      const wt = this.motor ? p.rpm * Math.PI / 30 : 0;
+      const tc = this.motor && Math.abs(wt) >= Math.abs(this.w) ? p.tauUp : p.tauDown;
+      const dw = (wt - this.w) * (1 - Math.exp(-dt / tc));
+      this.w += dw;
+      const L = p.I3 * this.w, dL = p.I3 * dw;
+      // 底座的角速度：繞鉛直軸轉（baseRate）＋繞底座長邊傾斜（tiltRate）
+      // ＋前後傾斜（basePitch，繞底座自己的 y 軸）
+      const ct0 = Math.cos(this.baseTilt), st0 = Math.sin(this.baseTilt), cy0 = Math.cos(this.baseAngle), sy0 = Math.sin(this.baseAngle);
+      const n = this.ez, wb = [this.tiltRate * cy0 - this.pitchRate * sy0 * ct0, this.tiltRate * sy0 + this.pitchRate * cy0 * ct0, this.baseRate + this.pitchRate * st0];
+      const wtot = V.add(this.Om, V.mul(n, this.sigma));
+      // 力矩
+      let tau = V.add(this.gravTorque(), this.push);
+      const rel = V.sub(wtot, wb);
+      const relPar = V.dot(rel, n), relPerp = V.sub(rel, V.mul(n, relPar));
+      tau = V.add(tau, V.mul(relPerp, -p.c));
+      const tPar = V.dot(tau, n) - p.cn * relPar;
+      const tPerp = V.sub(tau, V.mul(n, V.dot(tau, n)));
+      this.lastTau = tPerp;
+      // 橫向：先加力矩，再做陀螺項（繞 n 旋轉 Ω，精確解，大轉速也穩定）
+      let Om = V.add(this.Om, V.mul(tPerp, dt / p.It));
+      if (Math.abs(L) > 0) Om = V.rot(Om, n, (L / p.It) * dt);
+      Om = V.sub(Om, V.mul(n, V.dot(Om, n)));
+      this.Om = Om;
+      // 繞飛輪軸：馬達反作用
+      this.sigma += (tPar * dt - dL) / p.In;
+      // 姿態更新
+      const w2 = V.add(this.Om, V.mul(n, this.sigma)), wl = V.len(w2);
+      if (wl > 1e-12) {
+        const k = V.mul(w2, 1 / wl), a = wl * dt;
+        this.ex = V.rot(this.ex, k, a); this.ey = V.rot(this.ey, k, a); this.ez = V.rot(this.ez, k, a);
+      }
+      // 正交化
+      this.ez = V.unit(this.ez); this.ex = V.unit(V.sub(this.ex, V.mul(this.ez, V.dot(this.ex, this.ez))));
+      this.ey = V.cross(this.ez, this.ex);
+      this.baseAngle += this.baseRate * dt;
+      this.baseTilt += this.tiltRate * dt;
+      this.basePitch += this.pitchRate * dt;
+      this.t += dt;
+    }
+    /* 把內環姿態拆成三個環的角度：R = Rz(a)·Rx(b)·Ry(c)
+     * a：外環繞鉛直軸、b：中環繞外環的水平軸、c：內環繞中環的軸 */
+    ringAngles() {
+      // 我們的陀螺儀：最外圈跟底座一體（不動）。
+      //   第 2 圈：用最外圈上、下兩點當轉軸（鉛直 z 軸）       → 角度 a
+      //   第 3 圈：用第 2 圈左、右兩點當轉軸（x 軸）           → 角度 b
+      //   最內圈：用第 3 圈前、後兩點當轉軸（y 軸）            → 角度 c
+      //   飛輪軸在最內圈平面上、垂直於內圈轉軸；一開始跟最外圈的轉軸平行（朝上）
+      // 姿態（相對底座）R = Rz(a)·Rx(b)·Ry(c)，最內圈座標 = 飛輪座標
+      const cy = Math.cos(this.baseAngle), sy = Math.sin(this.baseAngle), ct = Math.cos(this.baseTilt), st = Math.sin(this.baseTilt);
+      const cp = Math.cos(this.basePitch), sp = Math.sin(this.basePitch);
+      const toBase = v => { const x = cy * v[0] + sy * v[1], y = -sy * v[0] + cy * v[1], z = v[2]; const y2 = ct * y + st * z, z2 = -st * y + ct * z; return [cp * x - sp * z2, y2, sp * x + cp * z2]; };
+      const ex = toBase(this.ex), ey = toBase(this.ey), ez = toBase(this.ez);
+      const R = [[ex[0], ey[0], ez[0]], [ex[1], ey[1], ez[1]], [ex[2], ey[2], ez[2]]];
+      const b = Math.asin(Math.max(-1, Math.min(1, R[2][1])));
+      const a = Math.atan2(-R[0][1], R[1][1]);
+      const c = Math.atan2(-R[2][0], R[2][2]);
+      return { a, b, c };
+    }
+    /* 飛輪軸的方位角與仰角 */
+    axisAngles() { const n = this.ez; return { az: Math.atan2(n[1], n[0]), el: Math.asin(Math.max(-1, Math.min(1, n[2]))) }; }
+  }
+
+  /* ---------- 2. 船上馬達開機：船往反方向轉 ----------
+   * 轉盤（繞鉛直軸）：I_r ω_r' = τ_m − b(ω_r − ψ') − c_air ω_r
+   * 船（偏航 ψ）：    I_b ψ''  = −τ_m + b(ω_r − ψ') − c_w ψ'
+   * τ_m 是馬達給轉盤的力矩，船受到大小相等、方向相反的反作用力矩。
+   * 沒有水和空氣阻力時，I_r ω_r + I_b ψ' 永遠等於 0（角動量守恆）。 */
+  class BoatSpin {
+    constructor(p) {
+      this.p = Object.assign({
+        Ir: 5.0e-5, Ib: 1.0e-3, tauStall: 3.0e-3, w0: 1000, // 轉盤、船、馬達堵轉力矩、空轉轉速 (rad/s)
+        b: 2e-7, cAir: 6e-7, cw: 2e-3, water: true, hold: false
+      }, p || {});
+      this.reset();
+    }
+    reset() { this.wr = 0; this.psid = 0; this.psi = 0; this.motor = false; this.Lout = 0; this.t = 0; }
+    get Lr() { return this.p.Ir * this.wr; }
+    get Lb() { return this.p.Ib * this.psid; }
+    step(dt) {
+      const p = this.p, rel = this.wr - this.psid;
+      const d = p.dir === -1 ? -1 : 1; // 馬達方向：1 = 從上面看逆時針，−1 = 順時針
+      const tm = this.motor ? d * p.tauStall * Math.max(-1, 1 - d * rel / p.w0) : 0;
+      const tb = p.b * rel, ta = p.cAir * this.wr;
+      const tw = p.water ? p.cw * this.psid : 0;
+      let ext; // 外界（水、空氣、手）給「船＋轉盤」系統的力矩
+      this.wr += (tm - tb - ta) / p.Ir * dt;
+      if (p.hold) {
+        // 手扶著船：船不轉，手吸收了船受到的反作用力矩
+        ext = -ta + (tm - tb);
+        this.psid = 0;
+      } else {
+        ext = -ta - tw;
+        this.psid += (-tm + tb - tw) / p.Ib * dt;
+      }
+      this.psi += this.psid * dt;
+      this.Lout -= ext * dt; // 外界帶走的角動量（讓三者加總永遠是 0）
+      this.t += dt;
+    }
+  }
+
+  /* ---------- 3. 搖晃船 ----------
+   * φ：船橫搖（繞 x，正 = 右舷往下）；θ：第二個自由度
+   *   鉸鏈：θ = 轉盤架前後倒（正 = 頂端往船頭）
+   *   固定：θ = 整艘船前後點頭（正 = 船頭往下）
+   * dL/dt = (φ' x̂ + θ' ŷ) × Lẑ = L(θ' x̂ − φ' ŷ)
+   *   I_θ θ'' = L φ' cosθ − k_θ sinθ − c_θ θ'
+   *   I_φ φ'' = −k_φ φ − c_φ φ' − L θ' cosθ + τ外   （兩個耦合項一正一負，陀螺力不做功） */
+  const ROLL_PRESETS = {
+    hinge: { Ig: 0.06, kg: 0.35, cg: 0.25, maxTip: 1.0 },
+    fixed: { Ig: 1.2, kg: 9.0, cg: 0.6, maxTip: 9 }
+  };
+  class BoatRoll {
+    constructor(p) {
+      this.p = Object.assign({ Ib: 1.0, kb: 4.0, cb: 0.35, L: 1.0 }, ROLL_PRESETS.hinge, p || {});
+      this.reset();
+    }
+    setMount(m) { Object.assign(this.p, ROLL_PRESETS[m]); this.mount = m; }
+    reset() { this.t = 0; this.phi = 0; this.phid = 0; this.th = 0; this.thd = 0; this.tauExt = 0; }
+    deriv(s) {
+      const [phi, phid, th, thd] = s, p = this.p, c = Math.cos(th);
+      let thdd = (p.L * phid * c - p.kg * Math.sin(th) - p.cg * thd) / p.Ig;
+      if (th > p.maxTip) thdd += (-(th - p.maxTip) * 300 - thd * 20);
+      if (th < -p.maxTip) thdd += (-(th + p.maxTip) * 300 - thd * 20);
+      const phidd = (-p.kb * phi - p.cb * phid - p.L * thd * c + this.tauExt) / p.Ib;
+      return [phid, phidd, thd, thdd];
+    }
+    step(dt) {
+      const s = [this.phi, this.phid, this.th, this.thd];
+      const k1 = this.deriv(s), a = (k, h) => s.map((v, i) => v + k[i] * h);
+      const k2 = this.deriv(a(k1, dt / 2)), k3 = this.deriv(a(k2, dt / 2)), k4 = this.deriv(a(k3, dt));
+      [this.phi, this.phid, this.th, this.thd] = s.map((v, i) => v + dt / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]));
+      this.t += dt;
+    }
+  }
+
+  const api = { V, Gimbal, BoatSpin, BoatRoll, ROLL_PRESETS, g };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.GyroLab = api;
+})(this);
+
+</script>
+<script>
+(() => {
+'use strict';
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const { V, Gimbal, BoatSpin } = GyroLab;
+const COL = { L: 0x1565ff, tau: 0xe5332a, dL: 0xe09a00, F: 0x8e44ad, W: 0x444444 };
+const PLAY = '<svg viewBox="0 0 20 20"><path d="M5 3 L17 10 L5 17 Z" fill="#222"/></svg>';
+const PAUSE = '<svg viewBox="0 0 20 20"><rect x="4" y="3" width="4" height="14" fill="#222"/><rect x="12" y="3" width="4" height="14" fill="#222"/></svg>';
+$$('.reset').forEach(b => b.innerHTML = '<svg viewBox="0 0 30 30"><path d="M22 9 A9 9 0 1 0 24 17" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><path d="M17 6 L25 6 L24 14 Z" fill="#fff"/></svg>');
+
+/* 飛輪種類：I 單位 g·cm²（= 10⁻⁷ kg·m²） */
+const WHEELS = [
+  { key: 'wood', name: '木頭圓盤（6 cm）', I: 45 },
+  { key: 'washer', name: '鋼墊圈 4 片（4 cm）', I: 125 },
+  { key: 'wood4', name: '木頭圓盤＋4 枚硬幣', I: 218 },
+  { key: 'steel', name: '鋼圓盤（6 cm）', I: 297 },
+  { key: 'wood8', name: '木頭圓盤＋8 枚硬幣', I: 390 }
+];
+const SETS = [[2, 0, 4, 1, 3], [4, 2, 0, 3, 1], [1, 3, 2, 4, 0]];
+const LETTERS = 'ABCDE';
+
+/* ---------- Three.js ---------- */
+const canvas = document.createElement('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.setClearColor(0x000000, 0);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 500);
+const M = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.55, metalness: 0.1 }, o || {}));
+const v3 = a => new THREE.Vector3(a[0], a[2], -a[1]); // 物理 (x 前, y 左, z 上) → 場景
+function makeArrow(color, r) {
+  const g = new THREE.Group(), m = M(color, { emissive: color, emissiveIntensity: 0.25 });
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1, 12), m); shaft.geometry.translate(0, 0.5, 0);
+  const hl = r * 6, head = new THREE.Mesh(new THREE.ConeGeometry(r * 2.6, hl, 16), m);
+  g.add(shaft, head);
+  g.set = (o, dir, len) => {
+    if (!(len > r * 2) || dir.lengthSq() < 1e-12) { g.visible = false; return; }
+    g.visible = true; g.position.copy(o); g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    const h = Math.min(hl, len * 0.5), k = h / hl; shaft.scale.y = Math.max(len - h, 0.001); head.scale.set(k, k, k); head.position.y = len - h / 2;
+  };
+  return g;
+}
+
+/* 陀螺儀模型（照實體：底座＋三環＋內環木片＋馬達＋木圓盤＋電池）　1 單位 = 1 cm */
+function makeGyro(scene, labelFn) {
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 0.95));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.75); dl.position.set(30, 60, 40); scene.add(dl);
+  const C = new THREE.Vector3(0, 14.0, 0); // 陀螺儀中心：最外圈底部的插銷插在柱子頂端
+  const desk = new THREE.Mesh(new THREE.BoxGeometry(80, 1, 50), M(0xc59a6d, { roughness: 0.85 })); desk.position.y = -0.5; scene.add(desk);
+  const dialLabels = [];
+  // 底座
+  const base = new THREE.Group(); scene.add(base);
+  const red = M(0xd9302c);
+  const b1 = new THREE.Mesh(new THREE.BoxGeometry(16, 1.4, 7), red); b1.position.y = 0.7; base.add(b1);
+  const b2 = new THREE.Mesh(new THREE.BoxGeometry(11, 1.4, 4.6), red); b2.position.y = 2.1; base.add(b2);
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 2.6, 20), M(0x4b5158)); post.position.y = 4.1; base.add(post);
+  // 最外圈底部突出的插銷，插進柱子頂端（外圈本身坐在柱子上緣）
+  const peg = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.6, 12), M(0xd0d6dd, { metalness: 0.7 })); peg.position.y = 5.4 + 0.15; base.add(peg);
+  // 環：最外圈跟底座一體（不會動），裡面三圈各用兩個點當轉軸（沒有橫桿）
+  const band = (r, w, c) => new THREE.Mesh(new THREE.CylinderGeometry(r, r, w, 72, 1, true), M(c, { side: THREE.DoubleSide }));
+  const stub = (len, axis) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, len, 12), M(0xd0d6dd, { metalness: 0.7 })); if (axis === 'x') m.rotation.z = Math.PI / 2; if (axis === 'z') m.rotation.x = Math.PI / 2; return m; };
+  const fixed = new THREE.Group(); fixed.position.copy(C); base.add(fixed);
+  const fR = band(7.8, 0.7, 0x2f3338); fR.rotation.x = Math.PI / 2; fixed.add(fR);             // 最外圈：直立，跟底座一體
+  const ringA = new THREE.Group(); fixed.add(ringA);
+  const aR = band(6.8, 1.0, 0x3a3f45); aR.rotation.x = Math.PI / 2; ringA.add(aR);           // 第 2 圈：直立，繞鉛直軸轉（上下兩點）
+  for (const s of [1, -1]) { const k = stub(1.3, 'y'); k.position.y = s * 7.3; fixed.add(k); }
+  const ringB = new THREE.Group(); ringA.add(ringB);
+  const bR = band(5.8, 1.4, 0x4b5158); ringB.add(bR);                                        // 第 3 圈：水平寬帶，繞左右兩點轉
+  for (const s of [1, -1]) { const k = stub(1.3, 'x'); k.position.x = s * 6.3; ringA.add(k); }
+  const ringC = new THREE.Group(); ringB.add(ringC);
+  const cR = band(4.8, 1.1, 0x5c636b); cR.rotation.z = Math.PI / 2; ringC.add(cR);           // 最內圈：直立，繞前後兩點轉
+  for (const s of [1, -1]) { const k = stub(1.3, 'z'); k.position.z = s * 5.3; ringB.add(k); }
+  // 木片：橫跨最內圈、跟最內圈的轉軸平行，兩端黏在內圈的轉軸點旁
+  const wood = M(0xd9b07a, { roughness: 0.8 });
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.4, 9.4), wood); ringC.add(plate);
+  // 馬達垂直穿過木片（飛輪軸 = 內圈局部 y），木圓盤在上面，電池在下面配重
+  const motor = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 2.7, 24), M(0xb8c0c8, { metalness: 0.7 })); motor.position.y = 0.3; ringC.add(motor);
+  const batt = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.6, 2.0), M(0x2b6cb0)); batt.position.y = -1.9; ringC.add(batt);
+  const wheel = new THREE.Group(); wheel.position.y = 2.0; ringC.add(wheel);
+  let parts = [];
+  const coinMat = M(0xd4a017, { metalness: 0.8, roughness: 0.35 });
+  function setWheel(r, coins) { // r：木圓盤半徑（cm）、coins：外圈黏的 10 元硬幣數
+    r = r || 3; coins = coins || 0;
+    parts.forEach(p => { wheel.remove(p); p.geometry.dispose(); }); parts = [];
+    const add = m => { wheel.add(m); parts.push(m); return m; };
+    add(new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.6, 56), wood));
+    const stripe = add(new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.06, r * 0.7), M(0xe5332a))); stripe.position.set(0, 0.32, r * 0.42);
+    const rc = r - 0.75, cr = Math.min(0.65, Math.PI * rc / Math.max(coins, 1) * 0.42);
+    for (let i = 0; i < coins; i++) { const a = i * Math.PI * 2 / coins; const c = add(new THREE.Mesh(new THREE.CylinderGeometry(cr, cr, 0.18, 20), coinMat)); c.position.set(Math.cos(a) * rc, 0.39, Math.sin(a) * rc); }
+  }
+  const arr = { L: makeArrow(COL.L, 0.38), tau: makeArrow(COL.tau, 0.32), dL: makeArrow(COL.dL, 0.3), F: makeArrow(COL.F, 0.28), W: makeArrow(COL.W, 0.12) };
+  Object.values(arr).forEach(a => scene.add(a));
+  // 陀螺儀中心的「世界座標」：底座傾斜時，中心會跟著底座一起移動
+  const center = () => fixed.getWorldPosition(new THREE.Vector3());
+  return { C, center, base, ringA, ringB, ringC, wheel, motor, setWheel, arr, dialLabels };
+}
+/* 依模擬狀態擺好模型與箭頭 */
+function poseGyro(G, sim, st, labs, w, h, showArrows) {
+  const { a, b, c } = sim.ringAngles();
+  G.base.rotation.set(sim.baseTilt, sim.baseAngle, -(sim.basePitch || 0), 'YXZ');
+  G.ringA.rotation.y = a; G.ringB.rotation.x = b; G.ringC.rotation.z = -c;
+  G.wheel.rotation.y = st.vis;
+  const n = v3(sim.n), L = sim.L, C = G.center();
+  // 角動量箭頭：從馬達正中間出發，沿著飛輪軸、指向角動量的方向
+  const O = new THREE.Vector3(); G.motor.getWorldPosition(O);
+  const Llen = Math.abs(L) < 1e-9 ? 0 : Math.max(5.5, Math.min(14, 13 * Math.sqrt(Math.abs(L) / 7.5e-3))), Ldir = n.clone().multiplyScalar(Math.sign(L) || 1);
+  G.arr.L.set(O, Ldir, showArrows ? Llen : 0);
+  const tp = V.add(sim.gravTorque(), sim.push), tl = V.len(tp), tv = v3(tp), tlen = Math.min(8, tl / 0.0012 * 6);
+  G.arr.tau.set(C, tv, showArrows && tl > 1e-5 ? tlen : 0);
+  const tip = O.clone().add(Ldir.clone().multiplyScalar(Llen));
+  G.arr.dL.set(tip, tv, showArrows && tl > 1e-5 && Llen > 1.5 ? Math.min(5, tlen * 0.7) : 0);
+  if (st.F) { const fd = v3(st.F).normalize(), at = C.clone().add(n.clone().multiplyScalar(4.3)); G.arr.F.set(at.clone().sub(fd.clone().multiplyScalar(4)), fd, showArrows ? 3.6 : 0); } else G.arr.F.visible = false;
+  G.arr.W.visible = false;
+  const pl = (k, obj, p) => { if (!labs[k]) return; if (!obj.visible) { labs[k].style.display = 'none'; return; } placeLabel(labs[k], p, camera, w, h); };
+  pl('L', G.arr.L, O.clone().add(Ldir.clone().multiplyScalar(Llen + 1.2)));
+  pl('tau', G.arr.tau, C.clone().add(tv.clone().normalize().multiplyScalar(tlen + 1.1)));
+  pl('dL', G.arr.dL, tip.clone().add(tv.clone().normalize().multiplyScalar(Math.min(5, tlen * 0.7) + 1.2)));
+  pl('F', G.arr.F, C.clone().add(n.clone().multiplyScalar(4.3)).add(new THREE.Vector3(0, 1.6, 0)));
+  G.dialLabels.forEach(d => placeLabel(d.el, d.p, camera, w, h));
+}
+/* 共用：單元框架 */
+const views = {};
+function makeView(name) {
+  const sec = $(`[data-screen="${name}"]`), play = $('.play', sec);
+  const v = { name, sec, play, speed: 1, paused: false, scene: new THREE.Scene() };
+  v.label = (t, c) => { const el = document.createElement('div'); el.className = 'vlabel'; el.textContent = t; el.style.color = c; $('.labels', sec).appendChild(el); return el; };
+  const pb = $('[data-act="play"]', sec), paint = () => { if (!pb) return; pb.innerHTML = v.paused ? PLAY : PAUSE; pb.setAttribute('aria-label', v.paused ? '播放' : '暫停'); };
+  if (pb) pb.onclick = () => { v.paused = !v.paused; paint(); }; paint(); // 船那頁沒有播放／暫停按鈕
+  $$(`input[name="spd-${name}"]`, sec).forEach(r => { r.onchange = () => { v.speed = +r.value; }; });
+  $('[data-act="reset"]', sec).onclick = () => { v.paused = false; paint(); v.reset(); };
+  $$('.accordion > button', sec).forEach(b => b.onclick = () => { const a = b.parentElement; a.classList.toggle('closed'); $('.tri', b).textContent = a.classList.contains('closed') ? '+' : '−'; });
+  views[name] = v; return v;
+}
+/* 先猜猜看：進到畫面先問問題。可以先回答再玩，也可以按右上角 ✕ 先玩，之後按左上角「回答問題」再回來答 */
+function makeQuiz(v, questions, onStart) {
+  const bg = document.createElement('div'); bg.className = 'quizbg'; bg.hidden = true;
+  bg.innerHTML = '<div class="quizcard" role="dialog" aria-modal="true"><button class="qx" aria-label="先不要回答，直接玩">✕</button><div class="qtag"></div><div class="q"></div><div class="qopts"></div><div class="reveal"><div class="verdict"></div><div class="why"></div></div><div class="qbtns"></div></div>';
+  v.sec.appendChild(bg);
+  const open = document.createElement('button'); open.className = 'btn qopen'; open.textContent = '回答問題'; open.hidden = true;
+  $('.play', v.sec).appendChild(open);
+  let qi = 0, score = 0;
+  const close = () => { bg.hidden = true; open.hidden = false; };
+  const show = () => {
+    const q = questions[qi];
+    $('.qtag', bg).textContent = `先猜猜看　第 ${qi + 1} 題，共 ${questions.length} 題`;
+    $('.q', bg).innerHTML = q.text;
+    $('.qopts', bg).innerHTML = q.opts.map(([k, t], i) => `<button class="opt" data-a="${k}">${'ABCD'[i]}. ${t}</button>`).join('');
+    $('.reveal', bg).classList.remove('show'); $('.qbtns', bg).innerHTML = '';
+  };
+  bg.addEventListener('click', e => {
+    if (e.target.closest('.qx')) { close(); return; }
+    const b = e.target.closest('.opt');
+    if (b && !b.disabled) {
+      const q = questions[qi], ok = b.dataset.a === q.ans; if (ok) score++;
+      $$('.opt', bg).forEach(x => { x.disabled = true; if (x.dataset.a === q.ans) x.classList.add('right'); }); if (!ok) b.classList.add('wrong');
+      const name = q.opts.find(o => o[0] === q.ans)[1];
+      $('.verdict', bg).innerHTML = ok ? `<span style="color:var(--ok)">答對了！${name}</span>` : `<span style="color:var(--bad)">答案是：${name}</span>`;
+      $('.why', bg).innerHTML = ''; $('.reveal', bg).classList.add('show'); // 只顯示答案，不放說明
+      const last = qi + 1 >= questions.length;
+      $('.qbtns', bg).innerHTML = last
+        ? `<span style="margin-right:auto;align-self:center;font-weight:700">答對 ${score} / ${questions.length} 題</span><button class="btn" data-q="again">再答一次</button><button class="btn on" data-q="start">開始玩，親手試試看</button>`
+        : '<button class="btn on" data-q="next">下一題 →</button>';
+      return;
+    }
+    const act = e.target.closest('[data-q]'); if (!act) return;
+    if (act.dataset.q === 'next') { qi++; show(); }
+    else if (act.dataset.q === 'again') { qi = 0; score = 0; show(); }
+    else if (act.dataset.q === 'start') { close(); if (onStart) onStart(); }
+  });
+  open.onclick = () => { qi = 0; score = 0; show(); bg.hidden = false; open.hidden = true; };
+  show();
+  v.quiz = { seen: false, open: () => { v.quiz.seen = true; qi = 0; score = 0; show(); bg.hidden = false; open.hidden = true; } };
+}
+function stepSim(sim, dt) { const h = 1 / 2000, N = Math.min(800, Math.max(1, Math.round(dt / h))); for (let i = 0; i < N; i++) sim.step(dt / N); }
+const WOOD_I = 45e-7; // 木圓盤（直徑 6 cm）轉動慣量 kg·m²
+/* 水平、跟飛輪軸垂直的推力方向（往「前」，軸朝前時改往左） */
+/* 桌面上的「前後左右」：直接印在 3D 桌面上（不會隨轉動畫面晃動），字頭朝前方 */
+function deskLabels(v) {
+  [['前', [13, 0]], ['後', [-13, 0]], ['左', [0, 13]], ['右', [0, -13]]].forEach(([t, p]) => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+    const x = cv.getContext('2d');
+    if (x) { x.fillStyle = '#5a3d22'; x.font = '900 96px "Noto Sans TC", "Microsoft JhengHei", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, 64, 70); }
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.4), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
+    m.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); // 平躺在桌上，字頭朝 +x（前）
+    m.position.set(p[0], 0.05, -p[1]);
+    v.scene.add(m);
+  });
+  return [];
+}
+// 把水平方向的向量（物理座標：x 前、y 左）說成「前／後／左／右」，兩個方向差不多大時說「左前」這種
+function word(d) {
+  const x = d[0], y = d[1], ax = Math.abs(x), ay = Math.abs(y);
+  if (ax < 1e-6 && ay < 1e-6) return '原地';
+  const fb = x > 0 ? '前' : '後', lr = y > 0 ? '左' : '右';
+  if (ay > 2 * ax) return lr;
+  if (ax > 2 * ay) return fb;
+  return lr + fb;
+}
+function sideForce(n, F) { const x = [1, 0, 0]; let d = V.sub(x, V.mul(n, V.dot(x, n))); d[2] = 0; if (V.len(d) < 0.2) d = [0, 1, 0]; return V.mul(V.unit(d), F); }
+
+/* =====================================================================
+   1. 介紹
+   ===================================================================== */
+(() => {
+  const v = makeView('intro');
+  const labs = { L: v.label('L', 'var(--vec-L)'), tau: v.label('τ', 'var(--vec-tau)'), dL: v.label('ΔL', 'var(--vec-dL)'), F: v.label('F', 'var(--vec-F)') };
+  const G = makeGyro(v.scene, v.label);
+  G.setWheel();
+  const dirs = deskLabels(v);
+  const sim = new Gimbal({ rpm: 6000, I3: WOOD_I });
+  const st = { hold: null, vis: 0, F: null, arrows: true, push: null, n0: null, result: '' };
+  const LMAX = WOOD_I * 8000 * Math.PI / 30;
+  // 推之前的軸（虛線）與軸頂端的軌跡
+  const ghost = new THREE.Group(); v.scene.add(ghost);
+  const dashMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
+  function buildGhost(a, b) { // 粗虛線：一段一段的小圓柱
+    while (ghost.children.length) { const c = ghost.children.pop(); c.geometry.dispose(); }
+    const d = b.clone().sub(a), len = d.length(), u = d.clone().normalize(), q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), u);
+    for (let x = 0; x < len; x += 1.3) { const l = Math.min(0.8, len - x); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, l, 8), dashMat); m.quaternion.copy(q); m.position.copy(a).addScaledVector(u, x + l / 2); ghost.add(m); }
+  }
+  const NT = 240, pts = [];
+  const trailMat = new THREE.MeshBasicMaterial({ color: 0x1565ff });
+  let trail = null, tn = 0, trailAt = 0, trailDirty = false;
+  function clearTrail() { pts.length = 0; tn = 0; if (trail) { v.scene.remove(trail); trail.geometry.dispose(); trail = null; } }
+  function rebuildTrail() { // 粗軌跡：沿著軸頂端走過的點做一條管子
+    if (pts.length < 2) return;
+    if (trail) { v.scene.remove(trail); trail.geometry.dispose(); }
+    const box = new THREE.Box3().setFromPoints(pts), size = box.getSize(new THREE.Vector3()).length();
+    const rad = Math.max(0.12, Math.min(0.17, size * 0.02)); // 偏很少時也看得到
+    trail = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.slice()), Math.min(300, pts.length * 2), rad, 5, false), trailMat);
+    trail.visible = !st.show || st.show.trail;
+    v.scene.add(trail);
+  }
+  // 軌跡畫在軸上、L 箭頭尖端再往外 1.5 cm 的地方，才不會被箭頭擋住（箭頭長度跟 poseGyro 裡算法一樣）
+  const arrowLen = L => Math.abs(L) < 1e-9 ? 0 : Math.max(5.5, Math.min(14, 13 * Math.sqrt(Math.abs(L) / 7.5e-3)));
+  const tipNow = () => Math.max(8, 0.3 + arrowLen(sim.L) + 1.5);
+  st.tip = tipNow();
+  // 轉速：調到多少就直接是多少（不模擬加速）
+  const applySpeed = () => { sim.w = sim.motor ? sim.p.rpm * Math.PI / 30 : 0; };
+  const rpm = $('#iRpm'), rad = $('#iRad'), coin = $('#iCoin');
+  const setRpm = x => { x = Math.max(0, Math.min(8000, x)); rpm.value = x; sim.p.rpm = x; $('#vRpm').textContent = x + ' rpm'; applySpeed(); };
+  // 木圓盤：厚 6 mm、木頭密度約 0.6 g/cm³ → 質量 ≈ 1.13 r² g，I = ½ m r²；硬幣 7.5 g 黏在半徑 r − 0.75 cm 處
+  const diskI = (r, n) => 0.5 * (1.13 * r * r) * r * r + n * 7.5 * (r - 0.75) * (r - 0.75); // g·cm²
+  const setDisk = () => {
+    const r = Math.max(2, Math.min(4, +rad.value)), n = Math.max(0, Math.min(8, Math.round(+coin.value)));
+    rad.value = r; coin.value = n;
+    $('#vRad').textContent = r.toFixed(1) + ' cm'; $('#vCoin').textContent = n + ' 枚硬幣';
+    const I = diskI(r, n); sim.p.I3 = I * 1e-7; applySpeed(); G.setWheel(r, n);
+    $('#iI').textContent = Math.round(I) + ' g·cm²';
+  };
+  rpm.oninput = () => setRpm(+rpm.value);
+  rad.oninput = setDisk; coin.oninput = setDisk;
+  $$('[data-step]', v.sec).forEach(b => b.onclick = () => {
+    const el = $('#' + b.dataset.for); el.value = +el.value + +b.dataset.step;
+    if (el === rpm) setRpm(+rpm.value); else setDisk();
+  });
+  const power = $('#iPower'), paintPower = () => { power.classList.toggle('on', sim.motor); power.textContent = sim.motor ? '馬達：開' : '馬達：關'; };
+  power.onclick = () => { sim.motor = !sim.motor; applySpeed(); paintPower(); };
+  st.show = { arrows: true, trail: true, guide: true };
+  $$('[data-show]', v.sec).forEach(b => b.onclick = () => {
+    const k = b.dataset.show; st.show[k] = !st.show[k]; b.classList.toggle('on', st.show[k]);
+    st.arrows = st.show.arrows; if (trail) trail.visible = st.show.trail; ghost.visible = st.show.guide && !!st.n0;
+  });
+  // 畫面上的「往前推／往後推」箭頭：點一下就推，動作結束才再出現
+  const pushArr = { fwd: makeArrow(0xff8c1a, 0.3), back: makeArrow(0xff8c1a, 0.3) };
+  v.scene.add(pushArr.fwd, pushArr.back);
+  const pushLab = { fwd: v.label('往前推', '#c25e00'), back: v.label('往後推', '#c25e00') };
+  function startPush(dir) {
+    st.push = { dir, t: 0, dur: 0.6, spinning: Math.abs(sim.rpmNow) > 300, d: sim.ex.slice() }; // 力的方向：內圈的「前」
+    st.n0 = sim.n.slice(); st.result = '';
+    const n0 = v3(st.n0); st.tip = tipNow();
+    buildGhost(G.center().sub(n0.clone().multiplyScalar(3)), G.center().add(n0.clone().multiplyScalar(st.tip + 1))); ghost.visible = st.show.guide;
+    clearTrail();
+  }
+  const pushDone = () => !st.push || (st.push.t > st.push.dur + 0.6 && (V.len(sim.Om) < 0.05 || st.push.t > 5));
+  const ray = new THREE.Raycaster(); let downAt = null;
+  const hit = e => {
+    const r = canvas.getBoundingClientRect();
+    ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
+    const vis = [pushArr.fwd, pushArr.back].filter(a => a.visible);
+    const h = ray.intersectObjects(vis, true)[0];
+    if (!h) return null; let o = h.object; for (let i = 0; i < 6 && o && o !== pushArr.fwd && o !== pushArr.back; i++) o = o.parent;
+    return o === pushArr.fwd ? 1 : -1;
+  };
+  canvas.addEventListener('pointerdown', e => { if (!v.sec.hidden) downAt = [e.clientX, e.clientY]; });
+  canvas.addEventListener('pointerup', e => {
+    if (v.sec.hidden || !downAt) return;
+    const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]); downAt = null;
+    if (moved < 6 && pushDone()) { const d = hit(e); if (d) startPush(d); }
+  });
+  let hovAt = 0;
+  canvas.addEventListener('pointermove', e => { if (v.sec.hidden || e.buttons) return; const t = performance.now(); if (t - hovAt < 80) return; hovAt = t; canvas.style.cursor = pushDone() && hit(e) ? 'pointer' : ''; });
+  // 傾斜底座（只做左右）：拖弧形把手（從目前角度加減），或直接拖量角器上的紅點／點量角器的弧。1° 為單位，最多 ±35°
+  const TMAX_DEG = 35;
+  st.tiltTarget = 0; st.pitchTarget = 0;
+  const prot = $('#iProt'), protSvg = $('#iProtSvg'), hRoll = $('#iRotRoll');
+  (() => { // 量角器刻度
+    let g = '';
+    for (let d = -90; d <= 90; d += 5) {
+      const a = d * Math.PI / 180, big = d % 30 === 0, mid = d % 10 === 0, r1 = 130, r2 = big ? 112 : mid ? 118 : 123;
+      g += `<line x1="${r1 * Math.sin(a)}" y1="${-r1 * Math.cos(a)}" x2="${r2 * Math.sin(a)}" y2="${-r2 * Math.cos(a)}" stroke="#5b6672" stroke-width="${big ? 2 : 1}"/>`;
+      if (mid && Math.abs(d) <= 60) g += `<text x="${100 * Math.sin(a)}" y="${-100 * Math.cos(a) + 4}" font-size="11" text-anchor="middle" fill="#333">${Math.abs(d)}</text>`;
+    }
+    $('#iProtTicks').innerHTML = g;
+    const A = TMAX_DEG * Math.PI / 180, R = 130;
+    $('#iProtRange').setAttribute('d', `M 0 0 L ${-R * Math.sin(A)} ${-R * Math.cos(A)} A ${R} ${R} 0 0 1 ${R * Math.sin(A)} ${-R * Math.cos(A)} Z`);
+  })();
+  const deg = r => Math.round(r * 180 / Math.PI);
+  const paintProt = () => {
+    const a = st.tiltTarget, d = deg(a), x = 118 * Math.sin(a), y = -118 * Math.cos(a);
+    $('#iProtNeedle').setAttribute('x2', x); $('#iProtNeedle').setAttribute('y2', y);
+    $('#iProtKnob').setAttribute('cx', x); $('#iProtKnob').setAttribute('cy', y);
+    $('#iProtVal').textContent = Math.abs(d) + '°' + (d > 0 ? ' 右' : d < 0 ? ' 左' : '');
+    hRoll.setAttribute('aria-valuenow', d);
+  };
+  const setAngle = d => { d = Math.max(-TMAX_DEG, Math.min(TMAX_DEG, Math.round(d))); st.tiltTarget = d * Math.PI / 180; paintProt(); };
+  let drag = null, hideTimer = null, overProt = false;
+  const showProt = () => { clearTimeout(hideTimer); paintProt(); prot.hidden = false; };
+  const hideSoon = (ms = 1500) => { clearTimeout(hideTimer); hideTimer = setTimeout(() => { if (!drag && !overProt) prot.hidden = true; }, ms); };
+  // 1) 弧形把手：按住左右拖，每 4 像素 1°（往右拖 → 往右歪）
+  hRoll.addEventListener('pointerenter', showProt);
+  hRoll.addEventListener('pointerleave', () => { if (!drag) hideSoon(); });
+  hRoll.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation(); try { hRoll.setPointerCapture(e.pointerId); } catch (_) {}
+    hRoll.classList.add('active'); showProt();
+    drag = { mode: 'handle', id: e.pointerId, x: e.clientX, start: deg(st.tiltTarget) };
+  });
+  hRoll.addEventListener('pointermove', e => { if (drag && drag.mode === 'handle' && drag.id === e.pointerId) setAngle(drag.start + (e.clientX - drag.x) / 4); });
+  const endHandle = () => { if (!drag || drag.mode !== 'handle') return; drag = null; hRoll.classList.remove('active'); hideSoon(); };
+  hRoll.addEventListener('pointerup', endHandle); hRoll.addEventListener('pointercancel', endHandle); hRoll.addEventListener('lostpointercapture', endHandle);
+  hRoll.addEventListener('keydown', e => {
+    const k = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    if (k) { e.preventDefault(); showProt(); setAngle(deg(st.tiltTarget) + k); hideSoon(); }
+  });
+  // 2) 量角器：拖紅點，或在弧上點一下，指針就跑到那個角度
+  const angleAt = e => { // 螢幕座標 → 量角器上的角度（正上方 0°，往右為正）
+    const m = protSvg.getScreenCTM(); if (!m) return null;
+    const pt = protSvg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const q = pt.matrixTransform(m.inverse());
+    return Math.atan2(q.x, -q.y) * 180 / Math.PI;
+  };
+  $$('.grab', prot).forEach(el => {
+    el.addEventListener('pointerenter', () => { overProt = true; clearTimeout(hideTimer); });
+    el.addEventListener('pointerleave', () => { overProt = false; if (!drag) hideSoon(); });
+    el.addEventListener('pointerdown', e => {
+      e.preventDefault(); e.stopPropagation(); try { el.setPointerCapture(e.pointerId); } catch (_) {}
+      drag = { mode: 'prot', id: e.pointerId, el }; prot.classList.add('dragging'); showProt();
+      const d = angleAt(e); if (d != null) setAngle(d);
+    });
+    el.addEventListener('pointermove', e => { if (drag && drag.mode === 'prot' && drag.id === e.pointerId) { const d = angleAt(e); if (d != null) setAngle(d); } });
+    const end = () => { if (!drag || drag.mode !== 'prot') return; drag = null; prot.classList.remove('dragging'); hideSoon(); };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
+  });
+  // 在別的地方按一下 → 收起量角器
+  document.addEventListener('pointerdown', e => { if (!prot.hidden && !drag && !e.target.closest('#iProt .grab, #iRotRoll')) { overProt = false; prot.hidden = true; } });
+  const setKnob = () => { st.tiltTarget = 0; st.pitchTarget = 0; prot.hidden = true; };
+  v.reset = () => { sim.reset(); st.vis = 0; st.push = null; st.result = ''; st.n0 = null; setKnob(); ghost.visible = false; clearTrail(); rad.value = 3; coin.value = 0; setDisk(); setRpm(6000); paintPower(); };
+  v.step = dt => {
+    const sdt = dt * v.speed;
+    sim.baseRate = 0;
+    // 底座往弧上設定的角度轉過去（最快 1.2 rad/s）
+    sim.tiltRate = Math.max(-1.2, Math.min(1.2, (st.tiltTarget - sim.baseTilt) * 5));
+    sim.pitchRate = Math.max(-1.2, Math.min(1.2, (st.pitchTarget - sim.basePitch) * 5));
+    st.F = null;
+    if (st.push) {
+      st.push.t += sdt;
+      if (st.push.t < st.push.dur) st.F = V.mul(st.push.d, 0.03 * st.push.dir);
+      else if (!st.result && st.push.t > st.push.dur + 0.4) {
+        const d = V.sub(sim.n, st.n0), pw = st.push.dir > 0 ? '前' : '後';
+        st.result = st.push.spinning
+          ? `你往<b>${pw}</b>推，軸的頂端卻往<b>${word(d)}</b>倒（看虛線和藍色軌跡）。力矩 τ = r × F 指向${word([0, st.push.dir, 0])}，L 往 τ 跑，跟你推的方向差 90°。`
+          : `飛輪沒轉：往${pw}推，就往<b>${word(d)}</b>倒，跟一般東西一樣。開馬達再推一次比較看看。`;
+      }
+    }
+    sim.push = st.F ? V.cross(V.mul(sim.n, 0.048), st.F) : [0, 0, 0];
+    stepSim(sim, sdt);
+    if (![sim.w, sim.sigma, ...sim.ez, ...sim.Om].every(Number.isFinite)) { sim.reset(); applySpeed(); st.push = null; clearTrail(); } // 萬一數值爆掉就自動復原
+    if (st.push && st.push.t < 4 && tn < NT) { // 只記有移動的點，避免一堆重疊的點
+      const q = G.center().add(v3(sim.n).multiplyScalar(st.tip));
+      if (!pts.length || q.distanceToSquared(pts[pts.length - 1]) > 1e-4) { pts.push(q); tn++; trailDirty = true; }
+    }
+    const tnow = performance.now(); // 軌跡最多每 0.1 秒重建一次
+    if (trailDirty && tnow - trailAt > 100) { trailDirty = false; trailAt = tnow; rebuildTrail(); }
+    st.vis += Math.sign(sim.w) * Math.min(Math.abs(sim.w) * 0.04, 26) * dt;
+  };
+  let rd = 0;
+  v.update = (w, h) => {
+    poseGyro(G, sim, st, labs, w, h, st.arrows);
+    dirs.forEach(d => placeLabel(d.el, d.p, camera, w, h));
+    // 推的箭頭放在飛輪軸頂端兩側
+    // 尖端對準最內圈頂端：「往前推」從後面推過來、「往後推」從前面推過來
+    // 箭頭跟著最內圈：尖端碰到內圈頂端的兩側面
+    const show = pushDone(), top = G.center().add(v3(sim.n).multiplyScalar(4.3)), X = v3(sim.ex).normalize(), AL = 3.6, GAP = 0.65;
+    pushArr.fwd.set(top.clone().addScaledVector(X, -(AL + GAP)), X, show ? AL : 0);
+    pushArr.back.set(top.clone().addScaledVector(X, AL + GAP), X.clone().negate(), show ? AL : 0);
+    if (show) { placeLabel(pushLab.fwd, top.clone().addScaledVector(X, -(AL + GAP + 1.4)).add(new THREE.Vector3(0, 1.2, 0)), camera, w, h); placeLabel(pushLab.back, top.clone().addScaledVector(X, AL + GAP + 1.4).add(new THREE.Vector3(0, 1.2, 0)), camera, w, h); }
+    else { pushLab.fwd.style.display = 'none'; pushLab.back.style.display = 'none'; }
+    { // 傾斜圖示放在底座靠觀眾那一端，量角器以底座轉軸為圓心
+      const pR = new THREE.Vector3(0, 2.6, 6.2); G.base.localToWorld(pR);
+      placeLabel(hRoll, pR, camera, w, h);
+      const pc = new THREE.Vector3(0, 0.2, 0).project(camera);
+      prot.style.left = ((pc.x + 1) / 2 * w) + 'px'; prot.style.top = ((1 - pc.y) / 2 * h) + 'px';
+    }
+    const now = performance.now(); if (now - rd < 120) return; rd = now;
+    const r = Math.abs(sim.rpmNow), spinning = r > 300;
+    $('#iRpmNow').textContent = Math.round(r) + ' rpm';
+    $('#iLval').textContent = (Math.abs(sim.L) * 1000).toFixed(2) + ' ×10⁻³ kg·m²/s';
+    $('#iDefl').textContent = st.n0 ? (Math.acos(Math.max(-1, Math.min(1, V.dot(sim.n, st.n0)))) * 180 / Math.PI).toFixed(1) + '°' : '—';
+    let t;
+    if (Math.abs(sim.baseTilt) > 0.05 || Math.abs(sim.basePitch) > 0.05) t = spinning ? '飛輪在轉：底座歪了，<b>飛輪軸還是指著原來的方向</b>，只有外面的環跟著動。這是定軸性。' : '飛輪沒轉（L = 0）：整個陀螺儀<b>跟著底座一起歪</b>。開馬達再試一次。';
+    else if (st.push && st.push.t < st.push.dur + 0.4) t = '推！注意看軸的頂端往哪邊跑……';
+    else if (st.result) t = st.result;
+    else if (spinning) t = '飛輪轉起來了，角動量 L（藍色箭頭）朝上。按「往前推一下」試試看，軸會往哪倒？';
+    else t = '先按「往前推一下」或按住「傾斜底座」，再開馬達做一次，比較有什麼不同。';
+    const hintEl = $('#iHint'); if (hintEl && hintEl.dataset.t !== t) { hintEl.dataset.t = t; hintEl.innerHTML = t; }
+  };
+  setDisk(); setRpm(6000); paintPower();
+  // 從陀螺儀後面往前看：前 = 畫面裡面
+  v.orbit = new Orbit(camera, canvas, { target: new THREE.Vector3(0, 12, 0), dist: 48, yaw: -Math.PI / 2 + 0.35, pitch: 0.32, minDist: 18, maxDist: 90 });
+  makeQuiz(v, [
+    { text: '飛輪在轉，從上面看是逆時針轉，角動量 L <em>朝上</em>。<br>把最內圈的頂端<em>往前推</em>一下，飛輪軸會往哪邊倒？',
+      opts: [['fwd', '往前倒'], ['back', '往後倒'], ['left', '往左倒'], ['right', '往右倒']], ans: 'left',
+      why: '推的位置在頂端，r 朝上；力往前，F 朝前。力矩 τ = r × F <b>朝左</b>。L 的尖端會往 τ 的方向跑，所以軸的頂端<b>往左倒</b>，跟你推的方向差 90°。' },
+    { text: '飛輪一樣在轉，L 朝上。這次把最內圈的頂端<em>往後推</em>一下，飛輪軸會往哪邊倒？',
+      opts: [['fwd', '往前倒'], ['back', '往後倒'], ['left', '往左倒'], ['right', '往右倒']], ans: 'right',
+      why: '力反過來變成朝後，力矩 τ = r × F 也跟著反過來，變成<b>朝右</b>，所以軸的頂端<b>往右倒</b>。往前推往左、往後推往右，都跟推的方向差 90°。' }
+  ]); // 開始玩時馬達維持關著，讓玩家自己打開
+})();
+
+/* =====================================================================
+   2. 船：馬達一開，船原地反轉（角動量守恆）
+   ===================================================================== */
+(() => {
+  const v = makeView('boat');
+  const scene = v.scene;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x6688aa, 0.95));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(30, 60, 20); scene.add(dl);
+  // 水面（半透明，看得到船底）＋池底＋格線（看得出船有沒有轉）
+  const waterMat = new THREE.MeshStandardMaterial({ color: 0x3b8fd9, transparent: true, opacity: 0.55, roughness: 0.3, depthWrite: false });
+
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), new THREE.MeshStandardMaterial({ color: 0x1f5f99 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = -8; scene.add(floor);
+  const grid = new THREE.GridHelper(120, 20, 0xbfe3ff, 0xbfe3ff); grid.position.y = -7.9; // 池底的格線：看得出船有沒有轉
+  grid.material.transparent = true; grid.material.opacity = 0.45; scene.add(grid);
+
+  // 船：螺旋花瓶模式的薄殼（只有一層牆＋底），1 單位 = 1 cm
+  const boat = new THREE.Group(); scene.add(boat);
+  const outline = k => { // 從上面看的船形（船頭朝 +x），k 往內縮
+    const sh = new THREE.Shape();
+    sh.moveTo(-9 + k, -4 + k); sh.lineTo(4, -4 + k);
+    sh.quadraticCurveTo(9 - k, -3.6 + k, 11 - 1.6 * k, 0);
+    sh.quadraticCurveTo(9 - k, 3.6 - k, 4, 4 - k);
+    sh.lineTo(-9 + k, 4 - k); sh.closePath(); return sh;
+  };
+  const shell = M(0xf4f4f4, { roughness: 0.6, side: THREE.DoubleSide }); // 兩面都畫：船殼內牆才不會變透明、看到外面的水
+  const wallShape = outline(0); wallShape.holes.push(outline(0.3));
+  const wall = new THREE.Mesh(new THREE.ExtrudeGeometry(wallShape, { depth: 5.2, bevelEnabled: false, curveSegments: 16 }), shell);
+  wall.rotation.x = -Math.PI / 2; boat.add(wall);
+  const bottom = new THREE.Mesh(new THREE.ExtrudeGeometry(outline(0.05), { depth: 0.3, bevelEnabled: false, curveSegments: 16 }), M(0xe3e3e3, { side: THREE.DoubleSide }));
+  bottom.rotation.x = -Math.PI / 2; boat.add(bottom);
+  boat.position.y = -1.8; // 吃水 1.8 cm
+  // 水面：一大片圓形，中間挖掉船的形狀，跟著船一起轉（水是同一個顏色，看不出水面在轉）。
+  // 這樣船殼裡面就不會有水面，不會看起來像進水。
+  const pool = new THREE.Shape(); pool.absarc(0, 0, 80, 0, Math.PI * 2, false); // 圓形水面：跟著船轉也看不出來 pool.holes.push(outline(0.15));
+  const water = new THREE.Mesh(new THREE.ShapeGeometry(pool, 48), waterMat); water.rotation.x = -Math.PI / 2; water.position.y = 1.8; water.renderOrder = 2; boat.add(water);
+  // 船內：支架、電池（放最低）、馬達、轉盤
+  // 船裡的平台：架在水面上方（不透明），船裡往下看只會看到平台，絕對看不到水
+  const DECK = 2.1; // 船內地板高度（船底往上 2.1 cm，比水面高 0.3 cm）
+  const deck = new THREE.Mesh(new THREE.ShapeGeometry(outline(0.2), 16), M(0xe9edf1, { side: THREE.DoubleSide }));
+  deck.rotation.x = -Math.PI / 2; deck.position.y = DECK; boat.add(deck);
+  const under = new THREE.Mesh(new THREE.ExtrudeGeometry(outline(0.2), { depth: DECK, bevelEnabled: false, curveSegments: 16 }), M(0xdfe4ea));
+  under.rotation.x = -Math.PI / 2; boat.add(under); // 平台下面整塊填滿，從側面也看不到船裡有空間進水
+  const bracket = new THREE.Mesh(new THREE.BoxGeometry(4, 0.4, 5), M(0xffd166)); bracket.position.set(0, DECK + 0.2, 0); boat.add(bracket);
+  const batt = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.4, 2.2), M(0x2b6cb0)); batt.position.set(-5.5, DECK + 0.7, 0); boat.add(batt);
+  const motor = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 2.7, 24), M(0xb8c0c8, { metalness: 0.7 })); motor.position.set(0, DECK + 0.4 + 1.35, 0); boat.add(motor);
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 2.2, 8), M(0xd0d6dd, { metalness: 0.8 })); shaft.position.set(0, DECK + 0.4 + 2.7 + 0.6, 0); boat.add(shaft);
+  const disk = new THREE.Group(); disk.position.set(0, DECK + 0.4 + 2.7 + 1.1, 0); boat.add(disk);
+  const wood = M(0xc8955c, { roughness: 0.8 });
+  let dparts = [];
+  const setDiskMesh = r => {
+    dparts.forEach(m => { disk.remove(m); m.geometry.dispose(); }); dparts = [];
+    const a = m => { disk.add(m); dparts.push(m); return m; };
+    a(new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.6, 48), wood));
+    const s1 = a(new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, r * 0.8), M(0xe5332a))); s1.position.set(0, 0.32, r * 0.5);
+    const s2 = a(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.08, 12), M(0x222222))); s2.position.set(r * 0.7, 0.32, 0);
+  };
+  // 角動量箭頭：轉盤的畫在轉軸上，船的畫在船尾
+  const arrR = makeArrow(COL.L, 0.32), arrB = makeArrow(0xff8c1a, 0.32); scene.add(arrR, arrB);
+  const labR = v.label('L 轉盤', 'var(--vec-L)'), labB = v.label('L 船', '#c25e00');
+
+  // 船的轉動慣量算進「被船帶著一起轉的水」，所以比空船大；水的阻力讓船轉一下就慢下來
+  // 水對慢慢轉的船阻力很小（cw 小），轉盤又一直受到一點空氣阻力，馬達得一直推轉盤，
+  // 反作用力也一直推船，所以實際的船會一直慢慢轉，不會停（跟實體實驗一致）
+  const sim = new BoatSpin({ Ir: 4.6e-6, Ib: 1.9e-3, tauStall: 1.0e-2, w0: 600, b: 2e-7, cAir: 1e-7, cw: 2e-4 });
+  const st = { vis: 0, arrows: true, brake: false };
+  const LREF = 0.008;
+  const rad = $('#bRad');
+  const diskI = r => 0.5 * (1.13 * r * r) * r * r; // g·cm²（木頭厚 6 mm，質量 ≈ 1.13 r² g）
+  const setRad = () => {
+    const r = Math.max(2, Math.min(5, +rad.value)); rad.value = r;
+    $('#vBRad').textContent = r.toFixed(1) + ' cm';
+    const I = diskI(r); sim.p.Ir = I * 1e-7; setDiskMesh(r);
+  };
+  rad.oninput = setRad;
+  // 船的質量 → 轉動慣量：把船看成長 20 cm、寬 8 cm 的長方形板，I = m (長² + 寬²) / 12 ≈ 38.7 m（g·cm²）
+  const mass = $('#bMass');
+  const setMass = () => {
+    const m = Math.max(100, Math.min(1000, Math.round(+mass.value / 50) * 50)); mass.value = m;
+    $('#vBMass').textContent = m + ' g'; sim.p.Ib = m * (20 * 20 + 8 * 8) / 12 * 1e-7;
+  };
+  mass.oninput = setMass;
+  $$('[data-step]', v.sec).forEach(b => b.onclick = () => { const el = $('#' + b.dataset.for); el.value = +el.value + +b.dataset.step; if (el === mass) setMass(); else setRad(); });
+  const power = $('#bPower'), paintPower = () => { power.classList.toggle('on', sim.motor); power.textContent = sim.motor ? '馬達：開' : '馬達：關'; };
+  power.onclick = () => { sim.motor = !sim.motor; paintPower(); };
+  // 抓住轉盤：按住時轉盤和船之間摩擦變很大
+  const brake = $('#bBrake');
+  const setBrake = on => { st.brake = on; brake.classList.toggle('held', on); if (on && sim.motor) { sim.motor = false; paintPower(); } };
+  brake.addEventListener('pointerdown', e => { e.preventDefault(); try { brake.setPointerCapture(e.pointerId); } catch (_) {} setBrake(true); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => brake.addEventListener(t, () => setBrake(false)));
+  brake.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setBrake(true); } });
+  brake.addEventListener('keyup', () => setBrake(false));
+  // 轉盤方向：順時針（從上面看）= 角動量朝下
+  const cwB = $('#bCW'), ccwB = $('#bCCW');
+  const setDir = d => { sim.p.dir = d; cwB.classList.toggle('on', d === -1); ccwB.classList.toggle('on', d === 1); };
+  cwB.onclick = () => setDir(-1); ccwB.onclick = () => setDir(1);
+  const wOn = $('#bWaterOn'), wOff = $('#bWaterOff');
+  const setWater = on => { sim.p.water = on; sim.p.cAir = on ? 1e-7 : 0; wOn.classList.toggle('on', on); wOff.classList.toggle('on', !on); };
+  const restart = () => { sim.reset(); st.vis = 0; setBrake(false); paintPower(); };
+  wOn.onclick = () => { setWater(true); restart(); }; wOff.onclick = () => { setWater(false); restart(); };
+  $('#bArrows').onclick = () => { st.arrows = !st.arrows; $('#bArrows').classList.toggle('on', st.arrows); };
+  const fills = $$('#bBars .fill');
+  const bar = (el, L) => { // 長條：往上是正（從上面看逆時針），往下是負
+    const h = Math.min(50, Math.abs(L) / LREF * 50);
+    el.style.height = h + '%';
+    if (L >= 0) { el.style.bottom = '50%'; el.style.top = 'auto'; } else { el.style.top = '50%'; el.style.bottom = 'auto'; }
+  };
+  v.reset = () => { sim.reset(); st.vis = 0; boat.rotation.y = 0; setBrake(false); rad.value = 3; setRad(); mass.value = 500; setMass(); setWater(true); setDir(-1); paintPower(); };
+  v.step = dt => {
+    const sdt = dt * v.speed;
+    sim.p.b = st.brake ? 3e-3 : 2e-7;
+    const N = Math.max(1, Math.round(sdt / 0.0005)); for (let k = 0; k < N; k++) sim.step(sdt / N);
+    if (![sim.wr, sim.psid, sim.psi].every(Number.isFinite)) sim.reset();
+    // 轉盤畫面上的轉速：太快會看不出在轉，最多畫 26 rad/s（方向正確）
+    const rel = sim.wr - sim.psid; st.vis += Math.sign(rel) * Math.min(Math.abs(rel), 26) * dt;
+  };
+  let rd = 0;
+  v.update = (w, h) => {
+    boat.rotation.y = sim.psi; disk.rotation.y = st.vis;
+    const len = L => Math.abs(L) < 1e-6 ? 0 : Math.max(2.2, Math.min(14, 12 * Math.abs(L) / LREF));
+    const up = new THREE.Vector3(0, 1, 0), down = new THREE.Vector3(0, -1, 0);
+    const oR = new THREE.Vector3(0, 2.1 + 0.4 + 2.7 + 1.5, 0); boat.localToWorld(oR);
+    const lr = len(sim.Lr), lb = len(sim.Lb);
+    arrR.set(oR, sim.Lr >= 0 ? up : down, st.arrows ? lr : 0);
+    const oB = new THREE.Vector3(-11, 5.4, 0); boat.localToWorld(oB);
+    arrB.set(oB, sim.Lb >= 0 ? up : down, st.arrows ? lb : 0);
+    const lab = (el, arr, o, L, l) => { if (!arr.visible) { el.style.display = 'none'; return; } placeLabel(el, o.clone().add(new THREE.Vector3(0, (L >= 0 ? 1 : -1) * (l + 1.2), 0)), camera, w, h); };
+    lab(labR, arrR, oR, sim.Lr, lr); lab(labB, arrB, oB, sim.Lb, lb);
+    const now = performance.now(); if (now - rd < 100) return; rd = now;
+    const rr = Math.round((sim.wr - sim.psid) * 30 / Math.PI); $('#bRpmR').textContent = Math.abs(rr) + ' rpm' + (rr > 0 ? ' ↺' : rr < 0 ? ' ↻' : ''); // 相對船（坐在船上看到的），不顯示負號、改用方向符號
+    const rb = sim.psid * 30 / Math.PI; $('#bRpmB').textContent = Math.abs(rb).toFixed(1) + ' rpm' + (rb > 0.05 ? ' ↺' : rb < -0.05 ? ' ↻' : '');
+    const deg = sim.psi * 180 / Math.PI;
+    $('#bAng').textContent = Math.abs(deg) < 0.5 ? '0°' : Math.round(Math.abs(deg)) + '° ' + (deg > 0 ? '逆時針' : '順時針');
+    bar(fills[0], sim.Lr); bar(fills[1], sim.Lb);
+  };
+  v.reset();
+  v.orbit = new Orbit(camera, canvas, { target: new THREE.Vector3(0, 1.5, 0), dist: 46, yaw: 0.7, pitch: 0.62, minDist: 18, maxDist: 100 });
+  makeQuiz(v, [
+    { text: '船原本靜止在水上。打開馬達，讓船裡的轉盤從上面看<em>順時針</em>轉，船會怎麼轉？',
+      opts: [['cw', '跟著順時針轉'], ['ccw', '往逆時針轉'], ['none', '不會轉']], ans: 'ccw',
+      why: '一開始船和轉盤都沒轉，角動量加起來是 0。馬達推轉盤順時針轉的同時，轉盤也把馬達和船往反方向推，所以船<b>往逆時針轉</b>，兩個的角動量一正一負，加起來還是 0。' }
+  ], () => setDir(-1));
+})();
+
+/* ---------- 切換畫面 ---------- */
+let cur = null;
+function go(name) {
+  $('.navbar').hidden = name === 'home' || !views[name]; // 首頁不要導覽列
+  if (name === 'home' || !views[name]) { name = 'home'; cur = null; $('#home').hidden = false; $$('.screen').forEach(s => s.hidden = true); }
+  else {
+    $('#home').hidden = true; cur = views[name];
+    $$('.screen').forEach(s => s.hidden = s.dataset.screen !== name);
+    cur.play.insertBefore(canvas, cur.play.firstChild);
+    Object.values(views).forEach(x => { x.orbit.enabled = x === cur; });
+    cur.orbit.update(); resize();
+    if (cur.quiz && !cur.quiz.seen) cur.quiz.open();
+  }
+  $$('.nbtn').forEach(b => b.classList.toggle('on', b.dataset.go === name));
+  try { history.replaceState(null, '', name === 'home' ? location.pathname : '#' + name); } catch (e) { /* 預覽環境可能不允許 */ }
+  window.scrollTo(0, 0);
+}
+$$('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
+$$('[data-open]').forEach(b => b.onclick = () => $('#' + b.dataset.open).classList.add('show'));
+$$('.modal-bg').forEach(m => m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show'); }));
+function resize() { if (!cur) return; const w = cur.play.clientWidth, h = cur.play.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+const ro = new ResizeObserver(resize); Object.values(views).forEach(x => ro.observe(x.play));
+let last = performance.now();
+let errShown = 0;
+function loop(now) {
+  requestAnimationFrame(loop); // 先排下一格：就算這一格出錯，畫面也不會停住
+  const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (!cur) return;
+  try {
+    if (!cur.paused) cur.step(dt);
+    camera.updateMatrixWorld(); cur.update(cur.play.clientWidth, cur.play.clientHeight); renderer.render(cur.scene, camera);
+  } catch (err) { if (errShown++ < 3) { console.error('[gyro] frame error', err); showErr(err); } }
+}
+// 出錯時在畫面左下角顯示紅字（方便截圖回報）
+function showErr(err) {
+  let box = document.getElementById('errBox');
+  if (!box) { box = document.createElement('div'); box.id = 'errBox'; box.style.cssText = 'position:fixed;left:8px;bottom:70px;z-index:999;max-width:min(520px,90vw);background:#fff0f0;color:#b00020;border:2px solid #b00020;border-radius:8px;padding:8px 10px;font:12px/1.4 monospace;white-space:pre-wrap;user-select:text'; document.body.appendChild(box); }
+  const stack = String((err && err.stack) || err).split('\n').slice(0, 4).join('\n');
+  box.textContent = '⚠ 程式出錯了（請截圖給組員）\n' + stack;
+}
+window.addEventListener('error', e => showErr(e.error || e.message));
+go(location.hash.slice(1) || 'home');
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
